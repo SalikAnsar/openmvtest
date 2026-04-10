@@ -75,3 +75,7 @@ freeze("$(OMV_LIB_DIR)/rsa/prime.py")
 
 freeze("$(OMV_LIB_DIR)/rsa/randnum.py")
 freeze("$(OMV_LIB_DIR)/rsa/transform.py")
+
+freeze("$(OMV_LIB_DIR)/util/decode_priv_key.py")
+freeze("$(OMV_LIB_DIR)/util/placeholder.txt")
+
