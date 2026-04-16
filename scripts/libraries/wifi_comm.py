@@ -51,7 +51,7 @@ def init_file_transfer_buffer():
     global FILE_TRANSFER_BUFFER
     try:
         FILE_TRANSFER_BUFFER = bytearray(DATA_BUFFER_SIZE)
-        logger.info(f"[MEM] Pre-allocated file transfer buffer: 2KB")
+        logger.info("[MEM] Pre-allocated file transfer buffer: 2KB")
         return True
     except MemoryError as e:
         logger.error(f"[MEM] Failed to allocate file transfer buffer: {e}")
@@ -64,7 +64,7 @@ def init_file_transfer_buffer():
 
 
 def create_persistent_connection(wifi_interface, host, port, max_retries=3):
-    global wifi_socket, wifi_nic
+    global wifi_socket
     if wifi_socket is not None:
         _close_socket_safely(wifi_socket)
         wifi_socket = None
@@ -105,7 +105,7 @@ def _close_socket_safely(sock):
 
 
 def send_data_to_app(data, timeout=0.1):
-    global communication, wifi_socket
+    global communication
 
     try:
         if wifi_socket is None:
@@ -187,7 +187,7 @@ def check_wifi_connection_status():
     If WiFi reconnects and socket is closed, attempt to reconnect.
     Uses cooldown to prevent redundant connection attempts.
     """
-    global communication, wifi_comm_enabled, wifi_socket, wifi_nic, last_connection_attempt_time
+    global communication, wifi_comm_enabled, wifi_socket
 
     if wifi_nic is None:
         wifi_comm_enabled = False
@@ -269,7 +269,6 @@ def connect_hotspot_server(wifi_interface):
 
 
 def get_wifi_comm_state():
-    global wifi_comm_enabled, communication, wifi_socket, wifi_logging_enabled
     return {
         'wifi_comm_enabled': wifi_comm_enabled,
         'communication': communication,
@@ -348,13 +347,16 @@ async def wifi_socket_read_loop():
                                 _message_buffer = ""
                                 break
 
-                            except ValueError as json_err:
+                            except ValueError:
                                 newline_pos = _message_buffer.find('\n')
                                 if newline_pos != -1:
                                     potential_message = _message_buffer[:newline_pos]
                                     try:
                                         message = ujson.loads(potential_message)
-                                        print(f"[WIFI_READ] Processing message: {message.get('message_type', 'unknown')}")
+                                        print(
+                                            "[WIFI_READ] Processing message: "
+                                            f"{message.get('message_type', 'unknown')}"
+                                        )
                                         handle_message(message)
                                         _message_buffer = _message_buffer[newline_pos + 1:]
                                         continue
@@ -382,7 +384,10 @@ async def wifi_socket_read_loop():
                                                 potential_message = _message_buffer[:i + 1]
                                                 try:
                                                     message = ujson.loads(potential_message)
-                                                    print(f"[WIFI_READ] Processing message: {message.get('message_type', 'unknown')}")
+                                                    print(
+                                                        "[WIFI_READ] Processing message: "
+                                                        f"{message.get('message_type', 'unknown')}"
+                                                    )
                                                     handle_message(message)
                                                     _message_buffer = _message_buffer[i + 1:]
                                                     break
@@ -484,8 +489,6 @@ def _handle_start_file_transfer(message):
 
 
 def _handle_file_chunk(message):
-    global _file_transfer_state
-
     if _file_transfer_state is None:
         logger.error("[FILE_RECV] file_chunk received without start_file_transfer")
         return
@@ -504,8 +507,11 @@ def _handle_file_chunk(message):
         _file_transfer_state["chunks"][chunk_index] = chunk_bytes
         _file_transfer_state["received_chunks"] += 1
 
-        print(f"[FILE_RECV] Received chunk {chunk_index} ({len(chunk_bytes)} bytes) - "
-                   f"{_file_transfer_state['received_chunks']}/{_file_transfer_state['expected_chunks']}")
+        print(
+            f"[FILE_RECV] Received chunk {chunk_index} ({len(chunk_bytes)} bytes) - "
+            f"{_file_transfer_state['received_chunks']}/"
+            f"{_file_transfer_state['expected_chunks']}"
+        )
 
     except Exception as e:
         logger.error(f"[FILE_RECV] Failed to decode chunk {chunk_index}: {e}")
@@ -588,7 +594,6 @@ def send_log_file(filename="main.log"):
     This is triggered by the 'download_logs' command.
     Uses the same path as the logger so we read from where logs are actually written.
     """
-    global wifi_socket
     log_path = None
     try:
         FS_ROOT = None
@@ -730,8 +735,6 @@ def get_image(imagename):
 
 
 def send_image_in_chunks(image_path):
-    global FILE_TRANSFER_BUFFER
-
     try:
         filename = image_path.split('/')[-1]
 
@@ -824,7 +827,7 @@ def get_recent_logs():
 
 
 def handle_command(message):
-    global wifi_logging_enabled, wifi_socket, recv_timeout
+    global wifi_socket, recv_timeout
     command = message.get("data")
     if (command == "ping"):  # Ping Pong
         send_data_to_app("pong")
