@@ -1737,9 +1737,9 @@ async def send_file_main_or_enqueue(msg_typ, creator, enc_msgbytes, epoch_ms, md
         if msg_typ == "P":
             db_store.update_img_sent_count(1)
         logger.info(
-            f"[IMG] ✔✔✔ Data[{msg_typ}] transmission completed in {
-                transmission_time /
-                1000:.4f} seconds, file:{creator}_{epoch_ms}")
+            f"[IMG] ✔✔✔ Data[{msg_typ}] transmission completed in "
+            f"{transmission_time / 1000:.4f} seconds, file:{creator}_{epoch_ms}"
+        )
         return True
     else:
         logger.error(f"[FILE] send failed, enqueuing to db_store")
@@ -2261,8 +2261,9 @@ def process_message(databytes, rssi=None):
                                     img = image.Image(320, 240, image.JPEG, buffer=img_bytes)
                                     db_store.store_image_raw(epoch_ms, creator, img)
                                     logger.info(
-                                        f"[IMG RX] Saved raw image: {creator}_{epoch_ms}_raw.jpg: raw size = {
-                                            len(img_bytes)} bytes")
+                                        f"[IMG RX] Saved raw image: {creator}_{epoch_ms}_raw.jpg: "
+                                        f"raw size = {len(img_bytes)} bytes"
+                                    )
                                 except Exception as e:
                                     logger.error(f"[IMG RX] Failed to decrypt/save raw image: {e}")
                                 finally:
@@ -2857,9 +2858,11 @@ class AppHandler:
         else:
             gps_staleness = -1
         curr_spath = get_curr_spath()
-        msmsgstr = f"{my_addr}:{
-            get_epoch_sec()}:{img_capture_count}:{gps_coords}:{gps_staleness}:{gps_success_count}:{gps_failure_count}:{
-            get_curr_neighbours()}:{curr_spath}"
+        msmsgstr = (
+            f"{my_addr}:{get_epoch_sec()}:{img_capture_count}:{gps_coords}:"
+            f"{gps_staleness}:{gps_success_count}:{gps_failure_count}:"
+            f"{get_curr_neighbours()}:{curr_spath}"
+        )
         return msmsgstr
 
     def send_hb_data(self):
@@ -2870,9 +2873,10 @@ class AppHandler:
         else:
             gps_staleness = -1
         curr_spath = get_curr_spath()
-        hbmsgstr = f"{my_addr}:{
-            get_epoch_sec()}:{img_capture_count}:{gps_coords}:{gps_staleness}:{
-            get_curr_neighbours()}:{curr_spath}:{APP_DISARMED}"
+        hbmsgstr = (
+            f"{my_addr}:{get_epoch_sec()}:{img_capture_count}:{gps_coords}:"
+            f"{gps_staleness}:{get_curr_neighbours()}:{curr_spath}:{APP_DISARMED}"
+        )
         return hbmsgstr
 
     async def check_radio_connectivity_with(self, target_addr, num_messages=10, byte_count=0):
@@ -2900,12 +2904,14 @@ class AppHandler:
                 success_count += 1
                 success_msg_elapsed_ms += get_epoch_ms() - monitor_from
                 logger.info(
-                    f"{my_addr} Successfully sent connectivity check message to {target_addr} (attempt {
-                        i + 1}/{TEST_MESSAGE_COUNT})")
+                    f"{my_addr} Successfully sent connectivity check message to "
+                    f"{target_addr} (attempt {i + 1}/{TEST_MESSAGE_COUNT})"
+                )
             else:
                 logger.info(
-                    f"{my_addr} Failed to send connectivity check message to {target_addr} (attempt {
-                        i + 1}/{TEST_MESSAGE_COUNT})")
+                    f"{my_addr} Failed to send connectivity check message to "
+                    f"{target_addr} (attempt {i + 1}/{TEST_MESSAGE_COUNT})"
+                )
 
             app_controller.create_and_send_message("radio_check",
                                                    {"target_addr": target_addr,
@@ -2933,11 +2939,15 @@ class AppHandler:
             app_controller.create_and_send_message(
                 "check_network",
                 {
-                    "message": f"No network to check, neighbours: {
-                        seen_neighbours_str if len(seen_neighbours_str) > 0 else 'None'}, shortest paths: {
-                        network_paths_str if len(network_paths_str) > 0 else 'None'}.",
+                    "message": (
+                        "No network to check, neighbours: "
+                        f"{seen_neighbours_str if len(seen_neighbours_str) > 0 else 'None'}, "
+                        "shortest paths: "
+                        f"{network_paths_str if len(network_paths_str) > 0 else 'None'}."
+                    ),
                     "seen_neighbours": seen_neighbours,
-                    "network_paths": network_paths},
+                    "network_paths": network_paths,
+                },
                 timeout=0.5)
             return False
         else:
@@ -3018,9 +3028,7 @@ class AppHandler:
                 return False
             app_controller.create_and_send_message(
                 "verify_internet", {
-                    "message": f"image size: {
-                        round(
-                            len(img_bytes) / 1024, 1)} kb"}, timeout=0.5)
+                    "message": f"image size: {round(len(img_bytes) / 1024, 1)} kb"}, timeout=0.5)
 
             imgbytes = ubinascii.b2a_base64(img_bytes).rstrip().decode()
             gc.collect()
