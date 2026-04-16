@@ -601,7 +601,10 @@ class InternetDriver:
         return self._upload_success_count
 
     def get_upload_fail_count(self):
-        return self._upload_fail_count        
+        return self._upload_fail_count
+    
+    def get_last_fail_count(self):
+        return self._last_fail_count
         
     def get_image_payload(self):
         """Capture a JPEG from the camera, hybrid-encrypt, return API payload dict."""

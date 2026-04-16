@@ -6,6 +6,8 @@ import time
 
 # Map board UID (hex bytes) to node address.
 UID_TO_ADDR = {
+    b'e606fe64d709051c': 216,
+    b'e076465dd7193d2a': 217,
     b'e076465dd7090e41': 218,
     b"e076465dd7194211": 219,
     b"e076465dd7091027": 220,

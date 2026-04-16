@@ -1,4 +1,4 @@
-from rsa.key import PublicKey, PrivateKey
+from rsa.key import PrivateKey, PublicKey
 import logger
 
 class PrivKeyRepo:
@@ -166,6 +166,12 @@ class PrivKeyRepo:
             logger.error(f"No pvt key for {nodeaddr}")
             return None
         return self.pvtkey[nodeaddr]
+
+    def get_pub_key(self, nodeaddr):
+        if nodeaddr not in self.n_pub or nodeaddr not in self.e_pub:
+            logger.error(f"No pub key for {nodeaddr}")
+            return None
+        return PublicKey(self.n_pub[nodeaddr], self.e_pub[nodeaddr])
 
 def main():
     p = PrivKeyRepo()
