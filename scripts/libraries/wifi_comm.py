@@ -7,13 +7,13 @@ import uasyncio as asyncio
 import os
 
 WIFI_COMM_PORT_MAP = {
-        219: 5001,
-        221: 5002,
-        222: 5003,
-        223: 5004,
-        224: 5005,
-        225: 5006,
-        }
+    219: 5001,
+    221: 5002,
+    222: 5003,
+    223: 5004,
+    224: 5005,
+    225: 5006,
+}
 WIFI_COMM_PORT = 0
 communication = False
 wifi_comm_enabled = False
@@ -34,6 +34,7 @@ _file_transfer_state = None
 # Message buffering - crucial for handling fragmented JSON
 _message_buffer = ""
 
+
 def init_wifi_comm(ah, myad):
     global apphandler
     apphandler = ah
@@ -43,6 +44,7 @@ def init_wifi_comm(ah, myad):
     if myaddr not in WIFI_COMM_PORT_MAP:
         logger.error(f"{myaddr} NOT in Port Map Yet")
     WIFI_COMM_PORT = WIFI_COMM_PORT_MAP[myaddr]
+
 
 def init_file_transfer_buffer():
     """Initialize the global file transfer buffer at startup when memory is available"""
@@ -60,7 +62,8 @@ def init_file_transfer_buffer():
         FILE_TRANSFER_BUFFER = None
         return False
 
-def create_persistent_connection(wifi_interface,host, port, max_retries=3):
+
+def create_persistent_connection(wifi_interface, host, port, max_retries=3):
     global wifi_socket, wifi_nic
     if wifi_socket is not None:
         _close_socket_safely(wifi_socket)
@@ -90,14 +93,16 @@ def create_persistent_connection(wifi_interface,host, port, max_retries=3):
                 return None
     return None
 
+
 def _close_socket_safely(sock):
     global wifi_socket
     try:
         sock.shutdown(socket.SHUT_RDWR)
-    except:
+    except Exception:
         pass
     if sock == wifi_socket:
         wifi_socket = None
+
 
 def send_data_to_app(data, timeout=0.1):
     global communication, wifi_socket
@@ -153,6 +158,7 @@ def send_data_to_app(data, timeout=0.1):
             _close_socket_safely(wifi_socket)
             return False, None
 
+
 def create_wifi_connection(wifi_interface, max_retries=3):
     if wifi_interface is None or not wifi_interface.isconnected():
         print("WARNING - WiFi interface not connected")
@@ -167,10 +173,11 @@ def create_wifi_connection(wifi_interface, max_retries=3):
 
         target_ip = gateway_ip
 
-        return create_persistent_connection(wifi_interface,target_ip, WIFI_COMM_PORT, max_retries)
+        return create_persistent_connection(wifi_interface, target_ip, WIFI_COMM_PORT, max_retries)
     except Exception as e:
         print(f"ERROR - Failed to create WiFi connection: {e}")
         return None
+
 
 def check_wifi_connection_status():
     """
@@ -188,7 +195,7 @@ def check_wifi_connection_status():
         if wifi_socket is not None:
             try:
                 wifi_socket.close()
-            except:
+            except Exception:
                 pass
             wifi_socket = None
         return
@@ -203,11 +210,12 @@ def check_wifi_connection_status():
             if wifi_socket is not None:
                 try:
                     wifi_socket.close()
-                except:
+                except Exception:
                     pass
                 wifi_socket = None
     else:
         return
+
 
 def connect_hotspot_server(wifi_interface):
     global wifi_comm_enabled, communication, wifi_socket, wifi_nic, last_connection_attempt_time
@@ -259,6 +267,7 @@ def connect_hotspot_server(wifi_interface):
         wifi_nic = wifi_interface
         return False
 
+
 def get_wifi_comm_state():
     global wifi_comm_enabled, communication, wifi_socket, wifi_logging_enabled
     return {
@@ -267,6 +276,7 @@ def get_wifi_comm_state():
         'socket': wifi_socket,
         'wifi_logging_enabled': wifi_logging_enabled
     }
+
 
 def _extract_complete_messages(buffer):
     """
@@ -290,6 +300,7 @@ def _extract_complete_messages(buffer):
 
     # Return the last line as remaining buffer (might be incomplete)
     return messages, lines[-1]
+
 
 async def wifi_socket_read_loop():
     print("info - Starting WiFi socket read loop")
@@ -347,7 +358,7 @@ async def wifi_socket_read_loop():
                                         handle_message(message)
                                         _message_buffer = _message_buffer[newline_pos + 1:]
                                         continue
-                                    except:
+                                    except Exception:
                                         pass
                                 brace_count = 0
                                 in_string = False
@@ -368,14 +379,14 @@ async def wifi_socket_read_loop():
                                         elif char == '}':
                                             brace_count -= 1
                                             if brace_count == 0:
-                                                potential_message = _message_buffer[:i+1]
+                                                potential_message = _message_buffer[:i + 1]
                                                 try:
                                                     message = ujson.loads(potential_message)
                                                     print(f"[WIFI_READ] Processing message: {message.get('message_type', 'unknown')}")
                                                     handle_message(message)
-                                                    _message_buffer = _message_buffer[i+1:]
+                                                    _message_buffer = _message_buffer[i + 1:]
                                                     break
-                                                except:
+                                                except Exception:
                                                     pass
                                 else:
                                     break
@@ -405,7 +416,7 @@ async def wifi_socket_read_loop():
                     wifi_comm_enabled = False
                     try:
                         wifi_socket.close()
-                    except:
+                    except Exception:
                         pass
                     wifi_socket = None
                     _message_buffer = ""
@@ -425,6 +436,7 @@ async def wifi_socket_read_loop():
         except Exception as e:
             print(f"[WIFI_READ] Error in read loop: {e}")
             await asyncio.sleep(3)
+
 
 def _get_file_save_root():
     """Return root path for saving received files (sdcard or flash)."""
@@ -471,7 +483,6 @@ def _handle_start_file_transfer(message):
         _file_transfer_state = None
 
 
-
 def _handle_file_chunk(message):
     global _file_transfer_state
 
@@ -501,7 +512,7 @@ def _handle_file_chunk(message):
 
 
 def _handle_end_file_transfer():
-    global _file_transfer_state
+    global _file_transfer_state, recv_timeout
 
     if _file_transfer_state is None:
         logger.error("[FILE_RECV] end_file_transfer received without active transfer")
@@ -533,15 +544,14 @@ def _handle_end_file_transfer():
             logger.info(f"[FILE_RECV] Successfully saved file: {save_path} ({received_chunks} chunks)")
             send_data_to_app({
                 "message_type": "end_file_transfer",
-                "data:":{
-                "file_name": file_name,
-                "save_path": save_path,
-                "chunks_received": received_chunks,
-                "chunks_expected": expected_chunks,
+                "data:": {
+                    "file_name": file_name,
+                    "save_path": save_path,
+                    "chunks_received": received_chunks,
+                    "chunks_expected": expected_chunks,
                 },
                 "timestamp": time.time(),
             })
-            global recv_timeout
             import machine
             recv_timeout = 0.1
             _file_transfer_state = None
@@ -557,21 +567,20 @@ def _handle_end_file_transfer():
             logger.error(f"[FILE_RECV] File incomplete: {received_chunks}/{expected_chunks} chunks received")
             send_data_to_app({
                 "message_type": "end_file_transfer",
-                "data:":{
-                "file_name": file_name,
-                "save_path": save_path,
-                "chunks_received": received_chunks,
-                "chunks_expected": expected_chunks,
+                "data:": {
+                    "file_name": file_name,
+                    "save_path": save_path,
+                    "chunks_received": received_chunks,
+                    "chunks_expected": expected_chunks,
                 },
                 "timestamp": time.time(),
             })
-            global recv_timeout
             recv_timeout = 0.1
             _file_transfer_state = None
 
-
     except Exception as e:
         logger.error(f"[FILE_RECV] Failed to close/save file: {e}")
+
 
 def send_log_file(filename="main.log"):
     """
@@ -649,6 +658,7 @@ def send_log_file(filename="main.log"):
 def update_hbstatus():
     data = apphandler.send_hb_data()
     parts = data.split(":")
+
     def _part(i, default=""):
         return parts[i].strip() if i < len(parts) else default
     # disarmed is 8th field (index 7); normalize to boolean for app
@@ -670,6 +680,7 @@ def update_hbstatus():
         "timestamp": time.time()
     }
     send_data_to_app(msg)
+
 
 def report_radio_check_result(success_count, success_rate, transfer_rate):
     """Send radio connectivity check result to the app."""
@@ -698,20 +709,25 @@ def radio_check(target_addr=0, byte_count=0):
     except Exception as e:
         logger.error(f"radio_check failed to schedule task: {e}")
 
+
 def list_images():
     imagelist = apphandler.list_images()
     create_and_send_message("list_images", imagelist, 5)
 
+
 def clear_image_queue():
     return apphandler.clear_image_queue()
+
 
 def clear_all_queue():
     return apphandler.clear_all_queue()
 
+
 def get_image(imagename):
-    #TODO(akash) check
+    # TODO(akash) check
     imgfile = "/sdcard/" + imagename
     send_log_file(imgfile)
+
 
 def send_image_in_chunks(image_path):
     global FILE_TRANSFER_BUFFER
@@ -763,63 +779,64 @@ def send_image_in_chunks(image_path):
 
     except OSError as e:
         create_and_send_message("image_transfer_error",
-                               f"File error: {str(e)}",
-                               timeout=1.0)
+                                f"File error: {str(e)}",
+                                timeout=1.0)
         return False
 
     except MemoryError as e:
         create_and_send_message("image_transfer_error",
-                               f"Memory error: {str(e)}",
-                               timeout=1.0)
+                                f"Memory error: {str(e)}",
+                                timeout=1.0)
         return False
 
     except Exception as e:
         create_and_send_message("image_transfer_error",
-                               f"Transfer failed: {str(e)}",
-                               timeout=1.0)
+                                f"Transfer failed: {str(e)}",
+                                timeout=1.0)
         return False
 
+
 def handle_message(message):
+    global recv_timeout
     msg_type = message.get("message_type")
     if msg_type == "command":
         print(f"received command: {message}")
         handle_command(message)
     elif msg_type == "start_file_transfer":
-        global recv_timeout
         recv_timeout = 5.0
         _handle_start_file_transfer(message)
         create_and_send_message("ack", "start_file_transfer")
     elif msg_type == "file_chunk":
-        global recv_timeout
         recv_timeout = 5.0
         _handle_file_chunk(message)
     elif msg_type == "end_file_transfer":
         _handle_end_file_transfer()
+
 
 def get_recent_logs():
     all_logs = apphandler.get_saved_logs()
     alength = len(all_logs)
     print(alength)
     start = alength - 10
-    start = 0 if start <0 else start
+    start = 0 if start < 0 else start
     for i in range(start, alength):
         create_and_send_message("log", all_logs[i], timeout=2.0)
 
+
 def handle_command(message):
-    global wifi_logging_enabled
+    global wifi_logging_enabled, wifi_socket, recv_timeout
     command = message.get("data")
-    if(command == "ping"): # Ping Pong
+    if (command == "ping"):  # Ping Pong
         send_data_to_app("pong")
-    elif(command == "reboot"): # Reboot the device
+    elif (command == "reboot"):  # Reboot the device
         import machine
-        global wifi_socket
         logger.error("==== Rebooted by APP --- will reboot in 10 seconds ==== ")
         _close_socket_safely(wifi_socket)
         wifi_socket = None
         create_and_send_message("disconnect", "reboot")
         time.sleep(10)
         machine.reset()
-    elif(command == "set_disarmed"): # Set disarmed status
+    elif (command == "set_disarmed"):  # Set disarmed status
         payload = message.get("payload")
         if payload and payload == "arm":
             apphandler.arm()
@@ -829,31 +846,31 @@ def handle_command(message):
             update_hbstatus()
         else:
             logger.error("invalid value provided")
-    elif(command == "download_logs"):
+    elif (command == "download_logs"):
         get_recent_logs()
 
-    elif(command == "show_status"): # Show status of the device
+    elif (command == "show_status"):  # Show status of the device
         update_hbstatus()
-        global recv_timeout
         recv_timeout = 2.0
-    elif(command == "radio_check"): # Radio check
+    elif (command == "radio_check"):  # Radio check
         payload = message.get("payload")
         radio_check(int(payload.get("target_addr", 0)), int(payload.get("byte_count", 0)))
 
-    elif(command == "list_images"):
+    elif (command == "list_images"):
         list_images()
-    elif(command == "clear_image_queue"):
+    elif (command == "clear_image_queue"):
         clear_image_queue()
-    elif(command == "download_image"):
+    elif (command == "download_image"):
         image_path = message.get("payload")
         if image_path:
             send_image_in_chunks(image_path)
         else:
             logger.error("no image path provided")
-    elif(command == "clear_all_queue"):
+    elif (command == "clear_all_queue"):
         clear_all_queue()
     else:
         logger.info(f"Unknown command: {command}")
+
 
 def create_and_send_message(message_type, data, timeout=0.5):
     msg = {
