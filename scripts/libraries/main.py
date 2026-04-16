@@ -1544,8 +1544,9 @@ def end_chunk(msg):
             else:
                 # Truncate - sender will send remaining chunks after getting this list in next round
                 logger.warning(
-                    f"[CHUNK] Missing chunk list truncated at {idx}/{
-                        len(missing_chunks)} chunks due to payload limit (will request remaining in next end packet)")
+                    f"[CHUNK] Missing chunk list truncated at {idx}/{len(missing_chunks)} "
+                    f"chunks due to payload limit (will request remaining in next end packet)"
+                )
                 break
         return (False, bytes(missing_bytes), filedata_id, None, epoch_ms)
     else:
