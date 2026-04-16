@@ -918,7 +918,7 @@ class SX126X:
             return ERR_WRONG_MODEM
 
         state = ERR_NONE
-        if enabled != True:
+        if not enabled:
             self._whitening = SX126X_GFSK_WHITENING_OFF
 
             state = self.setPacketParamsFSK(
