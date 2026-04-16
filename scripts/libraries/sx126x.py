@@ -498,8 +498,12 @@ class SX126X:
         symbolLength = int(((10 * 1000) << self._sf) / (10 * self._bwKhz))
         sleepPeriod = symbolLength * sleepSymbols
 
-        wakePeriod = int(max((symbolLength * (senderPreambleLength + 1) -
-                         (sleepPeriod - 1000)) / 2, symbolLength * (minSymbols + 1)))
+        wakePeriod = int(
+            max(
+                (symbolLength * (senderPreambleLength + 1) - (sleepPeriod - 1000)) / 2,
+                symbolLength * (minSymbols + 1),
+            )
+        )
 
         if sleepPeriod < (self._tcxoDelay + 1016):
             return self.startReceive()
@@ -507,8 +511,10 @@ class SX126X:
         return self.startReceiveDutyCycle(wakePeriod, sleepPeriod)
 
     def startReceiveCommon(self):
-        state = self.setDioIrqParams(SX126X_IRQ_RX_DONE | SX126X_IRQ_TIMEOUT |
-                                     SX126X_IRQ_CRC_ERR | SX126X_IRQ_HEADER_ERR, SX126X_IRQ_RX_DONE)
+        state = self.setDioIrqParams(
+            SX126X_IRQ_RX_DONE | SX126X_IRQ_TIMEOUT | SX126X_IRQ_CRC_ERR | SX126X_IRQ_HEADER_ERR,
+            SX126X_IRQ_RX_DONE,
+        )
         ASSERT(state)
 
         state = self.setBufferBaseAddress()
