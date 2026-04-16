@@ -1019,11 +1019,13 @@ async def periodic_memory_cleanup():
             img_queued_count = db_store.get_img_queued_count() if db_store is not None else -1
             if trans_in_progress:
                 logger.info(
-                    f"[MEM] ⛃⛃⛃⛁⛁⛁, img_queued: {img_queued_count}, img_sent: {
-                        db_store.get_img_sent_count()}, img_dropped: {
-                        db_store.get_img_dropped_count()}, img_failed: {
-                        db_store.get_img_failed_count()}, network paths: {
-                        len(network_paths)}, seen_neighbours: [{seen_nodes_str}], TRANS MODE, no cleanup!!")
+                    f"[MEM] ⛃⛃⛃⛁⛁⛁, img_queued: {img_queued_count}, "
+                    f"img_sent: {db_store.get_img_sent_count()}, "
+                    f"img_dropped: {db_store.get_img_dropped_count()}, "
+                    f"img_failed: {db_store.get_img_failed_count()}, "
+                    f"network paths: {len(network_paths)}, "
+                    f"seen_neighbours: [{seen_nodes_str}], TRANS MODE, no cleanup!!"
+                )
                 continue
             free_before = get_free_memory()
 
