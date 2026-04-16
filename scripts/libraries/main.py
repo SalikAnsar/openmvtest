@@ -297,8 +297,9 @@ def init_device():
     else:
         node_type = "Unit Node"
     logger.info(
-        f"[INIT] ===> MyAddr = {my_addr}, type=[{node_type}], uid={
-            uid.decode()}, PROCESS_ID_STR={PROCESS_ID_STR} <===\n")
+        f"[INIT] ===> MyAddr = {my_addr}, type=[{node_type}], "
+        f"uid={uid.decode()}, PROCESS_ID_STR={PROCESS_ID_STR} <===\n"
+    )
 
     # MEMORY FREE, ALLOCATION =====>
     gc.enable()
