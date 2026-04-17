@@ -262,10 +262,10 @@ def init_device():
     clock_start_ms = utime.ticks_ms()  # get millisecond counter
 
     if not is_sdcard_readable():
-        print(f"SDCARD NOT READABLE")
+        print("SDCARD NOT READABLE")
         return False
     if not is_sdcard_writable():
-        print(f"SDCARD NOT WRITABLE")
+        print("SDCARD NOT WRITABLE")
         return False
 
     logger.info(f"[FS] ==================>>>> SDCARD USABLE : Using FS_ROOT : {FS_ROOT}")
@@ -284,7 +284,7 @@ def init_device():
     create_dir_if_not_exists(LOGS_DIR)
 
     if PROCESS_ID_STR is None:
-        logger.error(f"[INIT] ===> PROCESS_ID_STR is not set, exiting...")
+        logger.error("[INIT] ===> PROCESS_ID_STR is not set, exiting...")
         sys.exit()
     try:
         db_store = DbStore(PROCESS_ID_STR, my_addr)
@@ -426,7 +426,7 @@ async def reboot_device():
         logger.info(f"Saving logs file {log_file} with {len(logs_list)} entries")
         logs_data = ("\n".join(logs_list)).encode()
         await db_store.save_file(logs_data, log_file)
-        print(f"REBOOTING DEVICE")
+        print("REBOOTING DEVICE")
         machine.reset()
     except Exception as e:  # Fail safe reboot
         machine.reset()
@@ -497,7 +497,7 @@ def parse_header(databytes):
     global radio_recd_succ_count, radio_recd_hasherr_count, radio_recd_err_count
     msg_uid = b""
     if databytes is None:
-        logger.warning(f"[LORA] Weird that databytes is none")
+        logger.warning("[LORA] Weird that databytes is none")
         return (False, None, None, None, None, None, None)
 
     if len(databytes) < HEADER_JOINED_LEN:
@@ -708,7 +708,7 @@ def delete_transmode_lock(device_id, filedata_id, trans_success=False):  # calle
     else:
         # will move it to debug later
         logger.debug(
-            f"[IMG] ○○○○○○○○○○❯❯ TRANS MODE already ended, for device "
+            "[IMG] ○○○○○○○○○○❯❯ TRANS MODE already ended, for device "
             f"{device_id} and filedata_id {filedata_id} ❮❮○○○○○○○○○○"
         )
 # -----------------------------------▲▲▲▲▲-----------------------------------
@@ -757,7 +757,7 @@ async def init_lora():
     # Input: None; Output: None (initializes global loranode, updates lora_reinit_count)
     global loranode, lora_init_count, lora_init_in_progress
     if lora_init_in_progress:
-        logger.info(f"[LORA] Initialization already in progress, skipping duplicate call")
+        logger.info("[LORA] Initialization already in progress, skipping duplicate call")
         return
     lora_init_in_progress = True
     try:
@@ -804,7 +804,7 @@ async def init_lora():
         # Set up interrupt callback for RX_DONE and TX_DONE
         loranode.setBlockingCallback(blocking=False, callback=lora_event_callback)
 
-        logger.info(f"[LORA] LoRa SX1262 initialized successfully")
+        logger.info("[LORA] LoRa SX1262 initialized successfully")
     except Exception as e:
         logger.error(f"[LORA] Exception during initialization: {e}")
         sys.print_exception(e)
@@ -845,7 +845,7 @@ def lora_event_callback(events):  # TODO Anand, merge radio_read into this funct
                 lora_rx_event.set()
             else:  # Previous packet not processed yet - log warning
                 radio_recd_err_count += 1
-                logger.warning(f"[LORA] Interrupt fired but previous packet not processed yet - this packet is skipped")
+                logger.warning("[LORA] Interrupt fired but previous packet not processed yet - this packet is skipped")
 
             try:
                 loranode.clearIrqStatus(SX126X_IRQ_RX_DONE)
@@ -916,10 +916,10 @@ def is_lora_ready():
     global lora_init_in_progress, loranode
     if loranode is None:
         if not lora_init_in_progress:
-            logger.error(f"[LORA] Not connected to radio network, init started in background.., msg marked as failed")
+            logger.error("[LORA] Not connected to radio network, init started in background.., msg marked as failed")
             asyncio.create_task(init_lora())
         else:
-            logger.debug(f"[LORA] Not connected to radio network, init already in progress, msg marked as failed")
+            logger.debug("[LORA] Not connected to radio network, init already in progress, msg marked as failed")
         return False
     return True
 # -----------------------------------▲▲▲▲▲-----------------------------------
@@ -1037,7 +1037,7 @@ async def periodic_memory_cleanup():
             free_after = get_free_memory()
             freed = free_after - free_before if free_before > 0 and free_after > 0 else 0
             cleanup_summary = (
-                f"[MEM] ⛃⛃⛃⛁⛁⛁ Cleanup complete "
+                "[MEM] ⛃⛃⛃⛁⛁⛁ Cleanup complete "
                 f"(free: {free_after / 1024:.1f}KB, freed: {freed / 1024:.1f}KB), "
                 f"img_queued: {img_queued_count}, "
                 f"img_sent: {db_store.get_img_sent_count()}, "
@@ -1191,7 +1191,7 @@ async def send_msg(msg_typ, creator, msgbytes, dest, retry_count=3):  # all mess
             return succ
         else:
             logger.error(
-                f"msgbtyes size exceeds the packet payload limit, "
+                "msgbtyes size exceeds the packet payload limit, "
                 f"{len(msgbytes)} bytes > {PACKET_PAYLOAD_LIMIT} bytes"
             )
             return False
@@ -1283,7 +1283,7 @@ async def send_msg_big(msg_typ, creator, msgbytes, dest, epoch_ms, md5):  # file
             delete_transmode_lock(dest, filedata_id)
             return False, f"Failed sending data, max retries reached-{max_miss_retries}"
         else:
-            logger.warning(f"TRANS MODE already in use, could not get lock...")
+            logger.warning("TRANS MODE already in use, could not get lock...")
             return False, "TRANS MODE already in use, could not get lock..."
     else:
         logger.warning(f"Invalid message type: {msg_typ}")
@@ -1311,7 +1311,7 @@ def get_ack_msg_info(msg_uid):
                                 logger.error(
                                     f"[ACK] Missing IDs payload length {len(payload)} "
                                     f"not multiple of CHUNK_ID_BYTES={CHUNK_ID_BYTES}, "
-                                    f"ignoring payload"
+                                    "ignoring payload"
                                 )
                                 return (0, [])  # ignoring invalid payload
                             for i in range(0, len(payload), CHUNK_ID_BYTES):
@@ -1358,7 +1358,7 @@ def get_missing_chunks(filedata_id):
         logger.warning(f"[CHUNK] get_missing_chunks: no chunks storage for filedata_id={filedata_id}")
         return []
     if trans_chunks_count is None:
-        logger.warning(f"[CHUNK] get_missing_chunks: trans_chunks_count not set")
+        logger.warning("[CHUNK] get_missing_chunks: trans_chunks_count not set")
         return []
 
     missing_chunks = []
@@ -1384,7 +1384,7 @@ def add_chunk(msgbytes):
             logger.error(
                 f"[CHUNK] no chunks storage for filedata_id={filedata_id}, "
                 f"chunk_index={chunk_id} (chunk may have arrived before B packet "
-                f"or chunks were cleared)"
+                "or chunks were cleared)"
             )
             return
 
@@ -1478,7 +1478,7 @@ def recompile_msg(filedata_id):
             logger.info(f"[MEM] Free memory after exception: {free_mem / 1024:.1f}KB")
             return None
     else:
-        logger.error(f"[CHUNK] recompile_msg not IMAGE_RECOMPILE_BUFFER initialized")
+        logger.error("[CHUNK] recompile_msg not IMAGE_RECOMPILE_BUFFER initialized")
         return None
         # try:
         #     total_size = 0
@@ -1545,7 +1545,7 @@ def end_chunk(msg):
                 # Truncate - sender will send remaining chunks after getting this list in next round
                 logger.warning(
                     f"[CHUNK] Missing chunk list truncated at {idx}/{len(missing_chunks)} "
-                    f"chunks due to payload limit (will request remaining in next end packet)"
+                    "chunks due to payload limit (will request remaining in next end packet)"
                 )
                 break
         return (False, bytes(missing_bytes), filedata_id, None, epoch_ms)
@@ -1587,7 +1587,7 @@ async def init_tracx_internet():
         if not internet_module.initialized:
             # init_success, init_error = internet_module.initialize_internet()
             # if not init_success:
-            logger.info(f"[CELL] Internet initialization failed")
+            logger.info("[CELL] Internet initialization failed")
             return False
     logger.info("[CELL] Internet module ready")
     return True
@@ -1598,13 +1598,13 @@ async def upload_payload_to_server(payload, msg_typ, creator):  # FINAL
     global internet_module, tracx_uart_lock
 
     if not running_as_cc():
-        logger.warning(f"upload called from unit node, skipping uploads")
+        logger.warning("upload called from unit node, skipping uploads")
         return False
     if not internet_module:
         app_controller.create_and_send_message(
             "verify_internet", {
                 "message": "Internet module not initialized"}, timeout=0.5)
-        logger.warning(f"Internet module not initialized")
+        logger.warning("Internet module not initialized")
         return False
 
     try:
@@ -1742,7 +1742,7 @@ async def send_file_main_or_enqueue(msg_typ, creator, enc_msgbytes, epoch_ms, md
         )
         return True
     else:
-        logger.error(f"[FILE] send failed, enqueuing to db_store")
+        logger.error("[FILE] send failed, enqueuing to db_store")
         if msg_typ == "P":
             store_succ, err = db_store.store_image(epoch_ms, creator, 0, enc_msgbytes)
             if not store_succ:
@@ -1808,7 +1808,7 @@ async def hb_process(msg_uid, msgbytes, sender):
             if not sent_succ:
                 logger.error(f"[HB] forwarding HB to {next_dst} failed")
         else:
-            logger.error(f"[HB] can't forward HB because I dont have next device in spath yet")
+            logger.error("[HB] can't forward HB because I dont have next device in spath yet")
 
 # # @@@@@@@@@@@@@@@@@@@@
 # # Method 2
@@ -1992,7 +1992,7 @@ async def image_sending_loop():
             continue
 
         if trans_in_progress:  # in receiving mode, so skip sending
-            logger.info(f"[IMG] Trans mode is active, skipping sending...")
+            logger.info("[IMG] Trans mode is active, skipping sending...")
             await asyncio.sleep(IMAGE_SENDING_LITE_DELAY)
             continue
 
@@ -2003,7 +2003,7 @@ async def image_sending_loop():
 
         while db_store.get_img_queued_count() > 0:
             if trans_in_progress:
-                logger.info(f"[IMG] Trans mode is active, breaking file sending while loop...")
+                logger.info("[IMG] Trans mode is active, breaking file sending while loop...")
                 break
             epoch_ms, creator, retry, enc_msgbytes, md5 = db_store.get_next_image_to_send()
             if epoch_ms is None:
@@ -2025,7 +2025,7 @@ async def image_sending_loop():
                             f"[IMG] Failed to re-queue image {creator}_{epoch_ms}.enc after send failure, error={err}")
                     else:
                         logger.warning(
-                            f"[IMG] upload_payload to server failed, image of "
+                            "[IMG] upload_payload to server failed, image of "
                             f"creator={creator}, re-queued: {creator}_{epoch_ms}.enc"
                         )
                     await asyncio.sleep(IMAGE_SENDING_LITE_DELAY)
@@ -2051,7 +2051,7 @@ async def image_sending_loop():
                         f"[IMG] Failed to re-queue image {creator}_{epoch_ms}.enc after exception, error={err}")
                 else:
                     logger.warning(
-                        f"[IMG] upload_payload to server failed, image of "
+                        "[IMG] upload_payload to server failed, image of "
                         f"creator={creator}, re-queued: {creator}_{epoch_ms}.enc"
                     )
                 await asyncio.sleep(IMAGE_SENDING_LITE_DELAY)
@@ -2067,7 +2067,7 @@ async def image_sending_loop():
                 gc.collect()
 
         if db_store.get_img_queued_count() == 0:
-            logger.info(f"[IMG] Queue empty, all images uploaded")
+            logger.info("[IMG] Queue empty, all images uploaded")
         if db_store.get_img_queued_count() > 0:
             await asyncio.sleep(random.uniform(IMAGE_SENDING_FAILED_PAUSE, IMAGE_SENDING_FAILED_PAUSE_2))
 
@@ -2091,7 +2091,7 @@ def process_message(databytes, rssi=None):
         return
 
     if is_install_mode and msg_typ not in ["X", "Y", "Z", "A", "H", "K"]:
-        logger.debug(f"[LORA] skipping message as it is in install mode and msg_typ not in [X, Y, Z, A, H]")
+        logger.debug("[LORA] skipping message as it is in install mode and msg_typ not in [X, Y, Z, A, H]")
         return False
 
     recv_log = ""
@@ -2140,23 +2140,23 @@ def process_message(databytes, rssi=None):
         try:
             filedata_id, msg_typ, numchunks, md5 = begin_chunk(msgbytes)  # msg_typ as "P"
             if filedata_id is None or numchunks is None:
-                logger.error(f"[CHUNK] Invalid B packet, cannot get filedata_id/numchunks")
+                logger.error("[CHUNK] Invalid B packet, cannot get filedata_id/numchunks")
                 return False
             # Check if this is a duplicate B packet for the same transfer
             if check_transmode_lock(sender, filedata_id):
                 # Same sender and filedata_id - send ACK anyway (duplicate begin packet)
-                logger.debug(f"[CHUNK] Duplicate B packet for same transfer, sending ACK")
+                logger.debug("[CHUNK] Duplicate B packet for same transfer, sending ACK")
                 asyncio.create_task(send_msg("A", my_addr, ackmessage, sender))
             elif db_store.storage_available(creator):
                 if get_transmode_lock(sender, filedata_id, msg_typ, numchunks, md5):
                     asyncio.create_task(keep_transmode_lock(sender, filedata_id))
                     asyncio.create_task(send_msg("A", my_addr, ackmessage, sender))
                 else:
-                    logger.warning(f"[CHUNK] TRANS MODE already in use for different transfer, sending W...")
+                    logger.warning("[CHUNK] TRANS MODE already in use for different transfer, sending W...")
                     asyncio.create_task(send_msg("W", my_addr, WAIT_MESSAGE, sender))
                     return False
             else:
-                logger.warning(f"[CHUNK] Storage not available, sending W...")
+                logger.warning("[CHUNK] Storage not available, sending W...")
                 asyncio.create_task(send_msg("W", my_addr, WAIT_MESSAGE, sender))
                 return False
         except Exception as e:
@@ -2173,7 +2173,7 @@ def process_message(databytes, rssi=None):
             else:
                 logger.warning(
                     f"[IMG RX] Chunk I message too short ({len(msgbytes)} bytes), "
-                    f"cannot extract filedata_id"
+                    "cannot extract filedata_id"
                 )
         except Exception as e:
             logger.error(f"[IMG RX] Error processing chunk I: {e}")
@@ -2199,14 +2199,14 @@ def process_message(databytes, rssi=None):
                     # Only validate when sender sent a non-empty md5 (legacy or chunk-forwarded entries may have no md5)
                     if trans_chunk_md5 and trans_chunk_md5 != computed_md5:
                         logger.error(
-                            f"[IMG RX] Invalid md5 for the file got transferred, "
+                            "[IMG RX] Invalid md5 for the file got transferred, "
                             f"expected={trans_chunk_md5}, computed={computed_md5}"
                         )
                         del recompiled_msgbytes
                         gc.collect()
                         return False
                     else:
-                        logger.info(f"[IMG RX] ✔✔✔ [VALID MD5 FILE] for the file got transferred")
+                        logger.info("[IMG RX] ✔✔✔ [VALID MD5 FILE] for the file got transferred")
                 except Exception as e:
                     logger.error(f"[IMG RX] Error checking md5 for the file got transferred: {e}")
                     del recompiled_msgbytes
@@ -2234,7 +2234,7 @@ def process_message(databytes, rssi=None):
                         )
                         if not ok:
                             logger.error(
-                                f"[CHUNK] send_file_main_or_enqueue failed for "
+                                "[CHUNK] send_file_main_or_enqueue failed for "
                                 f"type={trans_msg_typ_curr} creator={creator} "
                                 f"epoch={epoch_ms}"
                             )
@@ -2302,7 +2302,7 @@ def process_message(databytes, rssi=None):
                         pass
                     gc.collect()
             else:
-                logger.warning(f"[CHUNK] img not recompiled, might have complied last time")
+                logger.warning("[CHUNK] img not recompiled, might have complied last time")
         else:
             if not missing_bytes:  # ERROR case, not compiled, not missing
                 delete_transmode_lock(sender, filedata_id, False)
@@ -2345,7 +2345,7 @@ async def radio_read():  # TODO Anand, merge
     global lora_rx_data, lora_rx_status, lora_rx_event, packet_queue, packet_queue_lock
     global radio_recd_crcerr_count
 
-    logger.info(f"===> Radio Read, LoRa interrupt-driven receive loop started... <===\n")
+    logger.info("===> Radio Read, LoRa interrupt-driven receive loop started... <===\n")
     while True:
         # Safety check: wait for loranode to be initialized
         if not is_lora_ready():
@@ -2383,7 +2383,7 @@ async def radio_read():  # TODO Anand, merge
                 # Corrupted packet - log but don't process
                 # The radio detected a CRC error, but we still received the packet
                 radio_recd_crcerr_count += 1
-                logger.warning(f"[LORA] CRC error on received packet, dropped this packet")
+                logger.warning("[LORA] CRC error on received packet, dropped this packet")
             else:
                 # Other error - log and continue
                 # This could be timeout, header error, etc.
@@ -2411,7 +2411,7 @@ async def process_packet_queue():  # TODO Anand, (no change)
     """
     global packet_queue, packet_queue_lock
 
-    logger.info(f"===> Packet Queue Processor started... <===\n")
+    logger.info("===> Packet Queue Processor started... <===\n")
     while True:
         try:
             packet_data = None
@@ -2539,7 +2539,7 @@ async def send_heartbeat():
                 logger.info(f"[HB] Heartbeat sent successfully to {next_dst}")
                 return True
         else:
-            logger.error(f"[HB] can't send HB because I dont have next device in spath yet")
+            logger.error("[HB] can't send HB because I dont have next device in spath yet")
             return False
     return False
 
@@ -2555,14 +2555,14 @@ async def keep_generating_heartbeat():
         global trans_in_progress
         if trans_in_progress:
             if print_pause:
-                logger.info(f"[HB] PAUSED")
+                logger.info("[HB] PAUSED")
             print_pause = False
             print_resume = True
             await asyncio.sleep(200)
             continue
         else:
             if print_resume:
-                logger.info(f"[HB] RESUMED")
+                logger.info("[HB] RESUMED")
             print_resume = False
             print_pause = True
 
@@ -2576,14 +2576,14 @@ async def keep_generating_heartbeat():
             consecutive_hb_failures += 1
             logger.warning(f"consecutive heartbeat failures = {consecutive_hb_failures}")
             if consecutive_hb_failures > 3:
-                logger.error(f"Too many consecutive heartbeat failures, Rebooting device")
+                logger.error("Too many consecutive heartbeat failures, Rebooting device")
                 try:
                     await reboot_device()
                 except Exception as e:
                     logger.error(f"reinitializing LoRa: {e}")
         else:
             consecutive_hb_failures = 0
-            logger.info(f"[HB] HB SUCCESS")
+            logger.info("[HB] HB SUCCESS")
         await asyncio.sleep(HB_WAIT + random.randint(3, 10))
 
 
@@ -2637,7 +2637,7 @@ async def network_request_loop():
 
             global trans_in_progress
             if trans_in_progress:
-                logger.debug(f"skipping network request, because image in progress")
+                logger.debug("skipping network request, because image in progress")
                 await asyncio.sleep(NETWORK_IN_TRANS_SLEEP)
                 continue
 
@@ -2696,10 +2696,10 @@ async def network_response_consume(msg, sender):
     logger.info(f"[NET] updating {sender} in seen_neighbours")
 
     if running_as_cc():
-        logger.debug(f"Ignoring shortest path since I am cc")
+        logger.debug("Ignoring shortest path since I am cc")
         return
     if len(msg) == 0:
-        logger.error(f"empty spath_received message received")
+        logger.error("empty spath_received message received")
         return
     try:
         # Decode bytes to string before splitting
@@ -2714,7 +2714,7 @@ async def network_response_consume(msg, sender):
         return
 
     if len(spath_received) == 0:
-        logger.error(f"empty spath received")
+        logger.error("empty spath received")
         return
 
     network_paths = [x for x in network_paths if x.get("next") != sender]
@@ -3149,7 +3149,7 @@ async def enter_install_mode():
 
 async def main():
     global app_handler, app_controller
-    print(f"Entering MAIN loop... [PROCESS MODE]")
+    print("Entering MAIN loop... [PROCESS MODE]")
     led_restart_blinker()
 
     await init_tracx_internet()
