@@ -158,7 +158,7 @@ class DbStore(StoreUtils):
         if not process_id_str:
             raise ValueError("process_id_str must be a non-empty string")
 
-        self.process_id_str = process_id_str
+        self.process_id_str: str = process_id_str
         self.my_addr = my_addr
 
         self.fs_root = "/sdcard"
@@ -168,13 +168,16 @@ class DbStore(StoreUtils):
 
         self.process_dir = None
         self.image_dir = None
+        self.logs_dir = None
 
         if self.sdcard_available:
             logger.info(f"[DB] SD card usable, using FS_ROOT={self.fs_root}")
             self.process_dir = f"{self.fs_root}/{self.process_id_str}"
             self.image_dir = f"{self.process_dir}/all_images"
+            self.logs_dir = f"{self.process_dir}/logs"
             self._create_dir_if_not_exists(self.process_dir)
             self._create_dir_if_not_exists(self.image_dir)
+            self._create_dir_if_not_exists(self.logs_dir)
         else:
             logger.warning("[DB] SD card not available, operating in memory-only mode")
 
@@ -218,6 +221,10 @@ class DbStore(StoreUtils):
             with open(test_file, "wb") as f:
                 f.write(b"ok")
             os.remove(test_file)
+            
+            test_file = "/sdcard/processid"
+            with open(test_file, "wb") as f:
+                self.process_id_str.encode()
             return True
         except OSError:
             logger.warning("[DB] SD card not writable")

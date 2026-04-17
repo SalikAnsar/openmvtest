@@ -257,9 +257,6 @@ print(f"MY_ADDR: {my_addr}")
 encnode = None
 clock_start_ms = None
 PROCESS_DIR = None
-IMAGE_DIR = None
-STATS_DIR = None
-EVENT_DIR = None
 LOGS_DIR = None
 FS_ROOT = "/sdcard"
 
@@ -275,27 +272,10 @@ def init_device():
     global clock_start_ms
     clock_start_ms = utime.ticks_ms()  # get millisecond counter
 
-    if not is_sdcard_readable():
-        print("SDCARD NOT READABLE")
-        return False
-    if not is_sdcard_writable():
-        print("SDCARD NOT WRITABLE")
-        return False
-
     logger.info(f"[FS] ==================>>>> SDCARD USABLE : Using FS_ROOT : {FS_ROOT}")
 
-    global PROCESS_DIR, IMAGE_DIR, STATS_DIR, EVENT_DIR, LOGS_DIR, PROCESS_ID_STR
-    PROCESS_DIR = f"{FS_ROOT}/{PROCESS_ID_STR}"
-    IMAGE_DIR = f"{FS_ROOT}/{PROCESS_ID_STR}/all_images"
-    STATS_DIR = f"{FS_ROOT}/{PROCESS_ID_STR}/all_stats"
-    EVENT_DIR = f"{FS_ROOT}/{PROCESS_ID_STR}/all_events"
+    global PROCESS_ID_STR, LOGS_DIR 
     LOGS_DIR = f"{FS_ROOT}/{PROCESS_ID_STR}/logs"
-
-    create_dir_if_not_exists(PROCESS_DIR)
-    create_dir_if_not_exists(IMAGE_DIR)
-    create_dir_if_not_exists(STATS_DIR)
-    create_dir_if_not_exists(EVENT_DIR)
-    create_dir_if_not_exists(LOGS_DIR)
 
     if PROCESS_ID_STR is None:
         logger.error("[INIT] ===> PROCESS_ID_STR is not set, exiting...")
@@ -370,50 +350,6 @@ def running_as_cc():
 
 def running_as_unit():
     return not running_as_cc()
-
-
-def is_sdcard_writable():
-    try:
-        test_file = "/sdcard/processid"
-        with open(test_file, "wb") as f:
-            PROCESS_ID_STR.encode()
-        return True
-    except OSError:
-        return False
-
-
-def is_sdcard_readable():
-    for attempt in range(5):
-        try:
-            utime.sleep_ms(300 * (attempt + 1))
-            os.listdir('/sdcard')
-            logger.debug(f"[FS] SD card available (attempt {attempt + 1})")
-            return True
-        except OSError:
-            logger.error(f"[FS] SD card not found/ready, attempt {attempt + 1}/5")
-    return False
-
-
-def get_fs_root_for_storage():
-    # Input: None; Output: str path for filesystem root
-    has_sdcard = False
-    for attempt in range(5):
-        try:
-            utime.sleep_ms(300 * (attempt + 1))
-            os.listdir('/sdcard')
-            has_sdcard = True
-            logger.debug(f"[FS] SD card available (attempt {attempt + 1})")
-            break
-        except OSError:
-            logger.error(f"[FS] SD card not found/ready, attempt {attempt + 1}/5")
-    if has_sdcard and is_sdcard_writable():  # IO true case
-        return True, "/sdcard"
-    if has_sdcard:
-        logger.warning("[FS] SD card present but not writable, using /flash")
-        return False, "/flash"
-    else:
-        logger.error("[FS] SD card not found after retries, using /flash")
-        return True, "/flash"
 
 
 async def logger_state():
@@ -3219,7 +3155,5 @@ finally:
     try:
         print(" SHUTTING DOWN - ")
         print(os.listdir(LOGS_DIR))
-        print(os.listdir(STATS_DIR))
-        print(os.listdir(IMAGE_DIR))
     except Exception as e:
         logger.error(f"error in main.py: {e}")
