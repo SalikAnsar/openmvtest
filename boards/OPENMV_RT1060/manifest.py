@@ -40,7 +40,7 @@ require("ml", library="openmv-lib")
 include("$(MPY_DIR)/extmod/asyncio")
 
 # Boot script
-freeze ("$(OMV_LIB_DIR)/", "_boot.py")
+# freeze ("$(OMV_LIB_DIR)/", "_boot.py")
 
 freeze("$(OMV_LIB_DIR)/", "app_controller.py")
 freeze("$(OMV_LIB_DIR)/", "config.py")
@@ -51,7 +51,7 @@ freeze("$(OMV_LIB_DIR)/", "enc_priv.py")
 freeze("$(OMV_LIB_DIR)/", "gps_driver.py")
 freeze("$(OMV_LIB_DIR)/", "internet_driver.py")
 freeze("$(OMV_LIB_DIR)/", "logger.py")
-freeze("$(OMV_LIB_DIR)/", "main.py")
+freeze("$(OMV_LIB_DIR)/", "boot.py")
 freeze("$(OMV_LIB_DIR)/", "setup.py")
 freeze("$(OMV_LIB_DIR)/", "_sx126x.py")
 freeze("$(OMV_LIB_DIR)/", "sx126x.py")
