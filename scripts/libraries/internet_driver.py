@@ -5,7 +5,6 @@ import os
 import machine
 import sensor
 import ubinascii
-import enc
 
 # Try to import logger, fallback to print
 try:
@@ -44,7 +43,9 @@ except ImportError:
 # Configuration
 UART_ID = 1
 BAUDRATE = 115200
-
+ENCRYPTION_ENABLED = False
+if ENCRYPTION_ENABLED:
+    import enc
 
 class _UARTSerialAdapter:
     def __init__(self, uart):
@@ -611,15 +612,18 @@ class InternetDriver:
         img = sensor.snapshot()
         jpeg_bytearray = img.compress(quality=5)
         imgbytes = bytes(jpeg_bytearray)
-        encnode = enc.EncNode(self.machine_id)
-        enc_msgbytes = enc.encrypt_hybrid(imgbytes, encnode.get_pub_key())
-        imgbytes = ubinascii.b2a_base64(enc_msgbytes).rstrip().decode()
+        if ENCRYPTION_ENABLED:
+            encnode = enc.EncNode(self.machine_id)
+            enc_msgbytes = enc.encrypt_hybrid(imgbytes, encnode.get_pub_key())
+            imgbytes = ubinascii.b2a_base64(enc_msgbytes).rstrip().decode()
+        else:
+            imgbytes = ubinascii.b2a_base64(imgbytes).rstrip().decode()
         return {
             "machine_id": self.machine_id,
             "msg_typ": "event",
             "data": imgbytes,
             "epoch_ms": utime.time_ns() // 1_000_000,
-            "enc": True,
+            "enc": ENCRYPTION_ENABLED,
         }
 
     def make_upload_test(self):
@@ -672,7 +676,7 @@ def get_text_payload(my_addr):
         "msg_typ": "event_text",
         "epoch_ms": utime.time_ns() // 1_000_000,
         "data": _sample_b64,
-        "enc": True,
+        "enc": ENCRYPTION_ENABLED,
     }
 
 
