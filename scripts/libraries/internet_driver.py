@@ -1,6 +1,5 @@
 import time
 import utime
-import sys
 import config
 import os
 import machine
@@ -70,7 +69,7 @@ class InternetDriver:
         context_id=1,
         uart_id=1,
         baudrate=BAUDRATE,
-        configure_sensor = False
+        configure_sensor=False,
     ):
         """
         Initialize EC200 HTTP client
@@ -123,7 +122,7 @@ class InternetDriver:
                     raise Exception("ERROR - UART not available and no uart provided")
 
             self.context_id = context_id
-            self.default_timeout = 10 # 10 seconds
+            self.default_timeout = 10  # 10 seconds
             self._last_recovery_fail_ticks = 0  # time.ticks_ms() when recovery last failed
             self._uploads_since_health_check = 0
             self._health_check_interval = 10
@@ -183,7 +182,7 @@ class InternetDriver:
         # Send command
         self.uart.write((command + "\r\n").encode())
         return self._read_response(wait_for, int(timeout * 1000))
-    
+
     def _read_response(self, wait_for, timeout_ms, error_str="ERROR"):
         """
         Low-level polling reader. Returns (found: bool, response: str).
@@ -259,7 +258,8 @@ class InternetDriver:
         # context may already be inactive. This must live here (not only in
         # is_healthy) so that all recovery paths are self-contained.
 
-        # Give the module time to fully reset or QIACT may appear OK but drop immediately and cause AT+QHTTPURL 711 errors.
+        # Give the module time to fully reset or QIACT may appear OK but drop
+        # immediately and cause AT+QHTTPURL 711 errors.
         print("[CELL] Activating PDP context...")
         time.sleep(3)
         self._send_command(f"AT+QIDEACT={self.context_id}", timeout=10)
@@ -320,7 +320,7 @@ class InternetDriver:
         except Exception:
             pass
         time.sleep(0.2)
-    
+
     # ------------------------------------------------------------------
     # Health & diagnostics
     # ------------------------------------------------------------------
@@ -340,7 +340,7 @@ class InternetDriver:
             return False
 
         # PDP context check
-        success, resp = self._send_command(f"AT+QIACT?", timeout=4)
+        success, resp = self._send_command("AT+QIACT?", timeout=4)
         if not success or f"+QIACT: {self.context_id},1" not in resp:
             print("PDP context not active, triggering full recovery...")
             return False
@@ -584,7 +584,7 @@ class InternetDriver:
                     return False, 0, f"POST failed: {response}"
 
             time.sleep(0.02)
-            
+
         self.on_upload_fail()
         self.is_busy = False
         return False, 0, "POST timeout"
@@ -592,20 +592,20 @@ class InternetDriver:
     def on_upload_fail(self):
         self._upload_fail_count += 1
         self._last_fail_count += 1
-        
+
     def on_upload_success(self):
         self._upload_success_count += 1
         self._last_fail_count = 0
-        
+
     def get_upload_success_count(self):
         return self._upload_success_count
 
     def get_upload_fail_count(self):
         return self._upload_fail_count
-    
+
     def get_last_fail_count(self):
         return self._last_fail_count
-        
+
     def get_image_payload(self):
         """Capture a JPEG from the camera, hybrid-encrypt, return API payload dict."""
         img = sensor.snapshot()
@@ -621,7 +621,7 @@ class InternetDriver:
             "epoch_ms": utime.time_ns() // 1_000_000,
             "enc": True,
         }
-        
+
     def make_upload_test(self):
         try:
             url = "https://api.vyomiq.io/watchmen-detect/"
@@ -658,15 +658,20 @@ class InternetDriver:
         except Exception as e:
             print(f"Error in make_upload_test: {e}")
             return False
-            
 
 
 def get_text_payload(my_addr):
+    _sample_b64 = (
+        "BuxctA9cU74h2/f0BxB+lSLU1i3pGjXiAHNbJhlu8RPP768n4z"
+        "8AFiobqpZE0Smo4eE8qUWFQWLdIwHDvxEl7YWdUFXIEldX4vv9"
+        "bLTDtcokVfiBZzvCKYo2jHksL20X5aP49soS9wweON1YviK0p5"
+        "DSlNPmMojR/LVTsDt5lrg=\n"
+    )
     return {
         "machine_id": my_addr,
         "msg_typ": "event_text",
         "epoch_ms": utime.time_ns() // 1_000_000,
-        "data": "BuxctA9cU74h2/f0BxB+lSLU1i3pGjXiAHNbJhlu8RPP768n4z8AFiobqpZE0Smo4eE8qUWFQWLdIwHDvxEl7YWdUFXIEldX4vv9bLTDtcokVfiBZzvCKYo2jHksL20X5aP49soS9wweON1YviK0p5DSlNPmMojR/LVTsDt5lrg=\n",
+        "data": _sample_b64,
         "enc": True,
     }
 
@@ -714,11 +719,9 @@ if __name__ == "__main__":
         if not internet_module.initialized:
             # init_success, init_error = internet_module.initialize_internet()
             # if not init_success:
-            print(f"Internet initialization failed! Rebooting...")
+            print("Internet initialization failed! Rebooting...")
             with open(MAIN_LOG, "a") as f:
-                f.write(
-                    f"Internet initialization failed!, Rebooting...\n"
-                )
+                f.write("Internet initialization failed!, Rebooting...\n")
             time.sleep(2)
             machine.reset()
 
@@ -752,22 +755,24 @@ if __name__ == "__main__":
 
             if success:
                 success_count += 1
-                print(
-                    f"[{attempt_no}/{total_uploads}] SUCCESS | HTTP: {http_code} | {duration_ms/1000:.4f} seconds | {curr_epoch_ms}.jpg\n"
+                sec = duration_ms / 1000.0
+                msg_ok = (
+                    f"[{attempt_no}/{total_uploads}] SUCCESS | HTTP: {http_code} | "
+                    f"{sec:.4f} seconds | {curr_epoch_ms}.jpg\n"
                 )
+                print(msg_ok)
                 with open(MAIN_LOG, "a") as f:
-                    f.write(
-                        f"[{attempt_no}/{total_uploads}] SUCCESS | HTTP: {http_code} | {duration_ms/1000:.4f} seconds | {curr_epoch_ms}.jpg\n"
-                    )
+                    f.write(msg_ok)
             else:
                 fail_count += 1
-                print(
-                    f"[{attempt_no}/{total_uploads}] FAILED  | HTTP: {http_code} | {duration_ms/1000:.4f} seconds | {curr_epoch_ms}.jpg | {response}\n"
+                sec = duration_ms / 1000.0
+                msg_fail = (
+                    f"[{attempt_no}/{total_uploads}] FAILED  | HTTP: {http_code} | "
+                    f"{sec:.4f} seconds | {curr_epoch_ms}.jpg | {response}\n"
                 )
+                print(msg_fail)
                 with open(MAIN_LOG, "a") as f:
-                    f.write(
-                        f"[{attempt_no}/{total_uploads}] FAILED  | HTTP: {http_code} | {duration_ms/1000:.4f} seconds | {curr_epoch_ms}.jpg | {response}\n"
-                    )
+                    f.write(msg_fail)
 
         avg_duration_ms = (
             (total_duration_ms // total_uploads) if total_uploads > 0 else 0
