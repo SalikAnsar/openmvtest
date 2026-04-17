@@ -56,7 +56,7 @@ freeze("$(OMV_LIB_DIR)/", "setup.py")
 freeze("$(OMV_LIB_DIR)/", "_sx126x.py")
 freeze("$(OMV_LIB_DIR)/", "sx126x.py")
 freeze("$(OMV_LIB_DIR)/", "sx1262.py")
-freeze("$(OMV_LIB_DIR)/", "utils_python.py")
+freeze("$(OMV_LIB_DIR)/", "utils.py")
 freeze("$(OMV_LIB_DIR)/", "wifi_comm.py")
 
 # Freeze folders
