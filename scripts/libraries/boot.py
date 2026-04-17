@@ -1,54 +1,44 @@
 import time
-for i in range(60):
+for i in range(10):
     print(f"Booting...{i}")
     time.sleep(1)
-    
-try:
-    print("Checking imports")
-    import logger
-    from machine import UART, Pin, LED
-    import machine
-    from app_controller import AppController, WIFI_SOCKET_SESSION_TIMEOUT_S
-    from db_store import DbStore
-    import uasyncio as asyncio
-    import utime
-    import sensor
-    import image
-    import os                   # file system access
-    import sys
-    import binascii
-    import struct
-    import random
-    import ubinascii
-    import gc                   # garbage collection for memory management
-    import hashlib
-    import config
-    from utils import int_to_nbytes
-    from fs_utils import create_dir_if_not_exists
-    from sx1262 import SX1262
-    from gps_driver import GPSDriver
-    from internet_driver import InternetDriver
-    from _sx126x import (
-        ERR_NONE,
-        ERR_CRC_MISMATCH,
-        ERR_UNKNOWN,
-        SX126X_IRQ_CRC_ERR,
-        SX126X_IRQ_HEADER_ERR,
-        SX126X_IRQ_RX_DONE,
-        SX126X_IRQ_TIMEOUT,
-        SX126X_IRQ_TX_DONE,
-        SX126X_SYNC_WORD_PRIVATE,
-        SX126X_IRQ_ALL,
-    )
-    from detect import PIR_PIN, turn_ON_IR_emitter, turn_OFF_IR_emitter
-    for j in range(100):
-        print(f"Checked imports...{j}")
-        time.sleep(1)
-except Exception as e:
-    print(f"Error checking imports: {str(e)}")
-    for k in range(100):
-        print(f"Error while imports e:{str(e)}")
-        time.sleep(1)
+print("Checking imports")
+import logger
+from machine import UART, Pin, LED
+import machine
+from app_controller import AppController, WIFI_SOCKET_SESSION_TIMEOUT_S
+from db_store import DbStore
+import uasyncio as asyncio
+import utime
+import sensor
+import image
+import os                   # file system access
+import sys
+import binascii
+import struct
+import random
+import ubinascii
+import gc                   # garbage collection for memory management
+import hashlib
+import config
+from utils import int_to_nbytes
+from fs_utils import create_dir_if_not_exists
+from sx1262 import SX1262
+from gps_driver import GPSDriver
+from internet_driver import InternetDriver
+from _sx126x import (
+    ERR_NONE,
+    ERR_CRC_MISMATCH,
+    ERR_UNKNOWN,
+    SX126X_IRQ_CRC_ERR,
+    SX126X_IRQ_HEADER_ERR,
+    SX126X_IRQ_RX_DONE,
+    SX126X_IRQ_TIMEOUT,
+    SX126X_IRQ_TX_DONE,
+    SX126X_SYNC_WORD_PRIVATE,
+    SX126X_IRQ_ALL,
+)
+from detect import PIR_PIN, turn_ON_IR_emitter, turn_OFF_IR_emitter
 
 # -----------------------------------▼▼▼▼▼-----------------------------------
 # -------------------- TESTING VARIABLES, TODO PRODUCTION --------------------
