@@ -1,4 +1,3 @@
-import json
 import logger
 import socket
 import time
@@ -9,21 +8,21 @@ import network
 import uselect as select
 import ubinascii
 WIFI_COMM_PORT_MAP = {
-        216: 5015,
-        217: 5014,
-        218: 5013,
-        219: 5001,
-        221: 5002,
-        222: 5003,
-        223: 5004,
-        224: 5005,
-        225: 5006,
-        227: 5008,
-        228: 5009,
-        229: 5010,
-        230: 5011,
-        220: 5012,
-        }
+    216: 5015,
+    217: 5014,
+    218: 5013,
+    219: 5001,
+    221: 5002,
+    222: 5003,
+    223: 5004,
+    224: 5005,
+    225: 5006,
+    227: 5008,
+    228: 5009,
+    229: 5010,
+    230: 5011,
+    220: 5012,
+}
 # Auto-disconnect WiFi + app TCP session after this many seconds (from successful socket connect).
 WIFI_SOCKET_SESSION_TIMEOUT_S = 600
 wifi_socket = None
@@ -117,7 +116,6 @@ class AppController:
         loop.create_task(self.wifi_socket_read_loop())
         # loop.create_task(self._periodic_log_sender())
 
-
     def stop(self):
         """
         Stop WiFi + app communication:
@@ -191,7 +189,7 @@ class AppController:
 
         except Exception as e:
             logger.error(f"[WIFI] init error: {e}")
-            
+
             if self.wifi_nic is not None:
                 try:
                     self.wifi_nic.disconnect()
@@ -203,7 +201,7 @@ class AppController:
     def _close_socket_safely(self, sock):
         try:
             sock.shutdown(socket.SHUT_RDWR)
-        except:
+        except Exception:
             pass
         if sock == self.wifi_socket:
             self.wifi_socket = None
@@ -251,7 +249,7 @@ class AppController:
             if self.wifi_socket is not None:
                 try:
                     self.wifi_socket.close()
-                except:
+                except Exception:
                     pass
                 self.wifi_socket = None
                 self._wifi_session_deadline = None
@@ -263,7 +261,7 @@ class AppController:
             print("WARNING - WiFi disconnected, disabling WiFi communication")
             try:
                 self.wifi_socket.close()
-            except:
+            except Exception:
                 pass
             self.wifi_socket = None
             self._wifi_session_deadline = None
@@ -273,7 +271,7 @@ class AppController:
         Periodic task to monitor WiFi connection status and keep app socket alive.
         This is the class-based equivalent of main.monitogit_wifi_connection().
         """
-        
+
         connected_check_interval = 10
         http_reconnect_interval = 10
         disconnected_check_interval = 3
@@ -286,7 +284,7 @@ class AppController:
 
                 if is_connected:
                     logger.debug("[WIFI] WiFi connection status: connected")
-                    
+
                     if self.wifi_socket is not None and self._is_socket_alive():
                         self.consecutive_wifi_failures = 0
                         if (
@@ -326,7 +324,7 @@ class AppController:
         except Exception as e:
             print(f"[WIFI] Socket alive check error: {e}")
             return True
-    
+
     def _init_socket_connection(self, max_retries=3):
         """
         Initialize or re-initialize the WiFi socket connection to the hotspot server.
@@ -418,7 +416,7 @@ class AppController:
     # -------------------------------------------------------------------------
 
     async def wifi_socket_read_loop(self):
-        print("info - Starting WiFi socket read loop")        
+        print("info - Starting WiFi socket read loop")
         consecutive_empty_reads = 0
 
         while self.is_running:
@@ -470,7 +468,7 @@ class AppController:
                                         self.handle_message(message)
                                         self._message_buffer = self._message_buffer[newline_pos + 1:]
                                         continue
-                                    except:
+                                    except Exception:
                                         pass
 
                                 brace_count = 0
@@ -502,7 +500,7 @@ class AppController:
                                                     self.handle_message(message)
                                                     self._message_buffer = self._message_buffer[i + 1:]
                                                     break
-                                                except:
+                                                except Exception:
                                                     pass
                                 else:
                                     break
@@ -542,7 +540,7 @@ class AppController:
                 self.recv_timeout = 0.1
                 await asyncio.sleep(0.5)
 
-    # async def _periodic_log_sender(self):   
+    # async def _periodic_log_sender(self):
     #     while self.is_running:
     #         try:
     #             # print('++++++++++++++ sending logs ++++++++++++++')
@@ -551,10 +549,10 @@ class AppController:
     #                 if logs:
     #                     for log in logs:
     #                         self.create_and_send_message("log", log, timeout=0.5)
-                       
+
     #         except Exception as e:
     #             logger.error(f"[PERIODIC_LOGS] Error in periodic log sender: {e}")
-            
+
     #         await asyncio.sleep(3)
 
     # -------------------------------------------------------------------------
@@ -808,20 +806,23 @@ class AppController:
     def report_radio_check_result(self, success_count, success_rate, transfer_rate):
         msg = {
             "message_type": "radio_check",
-            "data": 
-                {
-                    "success_count": success_count,
-                    "success_rate_percent": success_rate,
-                    "transfer_rate_msgs_per_sec": transfer_rate,
-                }
-            ,
+            "data": {
+                "success_count": success_count,
+                "success_rate_percent": success_rate,
+                "transfer_rate_msgs_per_sec": transfer_rate,
+            },
             "timestamp": time.time(),
         }
         self.send_data_to_app(msg)
 
     def radio_check(self, target_addr=0, byte_count=30):
         print(f"Checking radio connectivity with {target_addr} with byte count {byte_count}")
-        self.create_and_send_message("radio_check", {"message": f"Checking radio connectivity with {target_addr}"}, timeout=0.5)
+        self.create_and_send_message(
+            "radio_check",
+            {"message": f"Checking radio connectivity with {target_addr}"},
+            timeout=0.5,
+        )
+
         async def _run_check():
             result = await self.apphandler.check_radio_connectivity_with(
                 target_addr, 20, byte_count
@@ -906,7 +907,7 @@ class AppController:
                 error_msg = f"File error: {str(e)}"
             elif isinstance(e, MemoryError):
                 error_msg = f"Memory error: {str(e)}"
-            
+
             self.create_and_send_message("image_transfer_error", error_msg, timeout=1.0)
             return False
 
@@ -918,37 +919,79 @@ class AppController:
         return getattr(self.apphandler, "is_cc", lambda: False)()
 
     async def _handle_verify_internet(self):
-        self.create_and_send_message("verify_internet", {"message": "checking internet connection"}, timeout=0.5)
+        self.create_and_send_message(
+            "verify_internet", {"message": "checking internet connection"}, timeout=0.5
+        )
 
         if not self._running_as_cc():
-            self.create_and_send_message("verify_internet", {"message": "not running as CC", "result": "fail"}, timeout=0.5)
+            self.create_and_send_message(
+                "verify_internet",
+                {"message": "not running as CC", "result": "fail"},
+                timeout=0.5,
+            )
             return
         try:
             run_fn = getattr(self.apphandler, "verify_internet_capture_and_upload", None)
             if not run_fn:
-                self.create_and_send_message("verify_internet", {"message": "verify_internet capture+upload not available", "result": "fail"}, timeout=0.5)
+                self.create_and_send_message(
+                    "verify_internet",
+                    {
+                        "message": "verify_internet capture+upload not available",
+                        "result": "fail",
+                    },
+                    timeout=0.5,
+                )
                 return
             try:
                 s = time.ticks_ms()
                 ok = await run_fn()
                 upload_duration = max(time.ticks_diff(time.ticks_ms(), s) / 1000.0, 1e-6)
                 if ok:
-                    self.create_and_send_message("verify_internet", {"message": f"upload succeeded in {upload_duration:.3f} seconds", "result": "pass"}, timeout=0.5)
+                    self.create_and_send_message(
+                        "verify_internet",
+                        {
+                            "message": f"upload succeeded in {upload_duration:.3f} seconds",
+                            "result": "pass",
+                        },
+                        timeout=0.5,
+                    )
                 else:
-                    self.create_and_send_message("verify_internet", {"message": f"upload failed after {upload_duration:.3f} seconds", "result": "fail"}, timeout=0.5)
+                    self.create_and_send_message(
+                        "verify_internet",
+                        {
+                            "message": f"upload failed after {upload_duration:.3f} seconds",
+                            "result": "fail",
+                        },
+                        timeout=0.5,
+                    )
             except Exception as e:
-                self.create_and_send_message("verify_internet", {"message": f"upload error: {e}", "result": "fail"}, timeout=0.5)
+                self.create_and_send_message(
+                    "verify_internet",
+                    {"message": f"upload error: {e}", "result": "fail"},
+                    timeout=0.5,
+                )
         finally:
             pass
 
     async def handle_check_network(self):
         try:
-            self.create_and_send_message("check_network", {"message": "Running network scan"}, timeout=0.5)
+            self.create_and_send_message(
+                "check_network", {"message": "Running network scan"}, timeout=0.5
+            )
             check_network_result = await self.apphandler.check_network()
             if not check_network_result:
-                self.create_and_send_message("check_network", {"message": "Network scan failed", "result": "fail"}, timeout=0.5)
+                self.create_and_send_message(
+                    "check_network",
+                    {"message": "Network scan failed", "result": "fail"},
+                    timeout=0.5,
+                )
         except Exception as e:
-            self.create_and_send_message("check_network", {"message": f"Network scan failed: {e}", "result": "fail"}, timeout=0.5)
+            self.create_and_send_message(
+                "check_network",
+                {"message": f"Network scan failed: {e}", "result": "fail"},
+                timeout=0.5,
+            )
+
     # -------------------------------------------------------------------------
     # Message / command handling
     # -------------------------------------------------------------------------
@@ -1019,7 +1062,7 @@ class AppController:
             self.create_and_send_message("disconnect", "reboot")
             time.sleep(10)
             machine.reset()
-#================================================ unused ================================================
+        # ==== unused ====
         elif command == "set_disarmed":
             logger.info(f"received command: {message}")
             payload = message.get("payload")
@@ -1060,7 +1103,7 @@ class AppController:
             "timestamp": time.time(),
         }
         self.send_data_to_app(msg, timeout)
-    
+
     @staticmethod
     def _extract_complete_messages(buffer):
         """
