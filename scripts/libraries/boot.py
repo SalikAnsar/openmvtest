@@ -1,3 +1,6 @@
+for i in range(60):
+    print(f"Booting...{i}")
+    time.sleep(1)
 import logger
 from machine import UART, Pin, LED
 import machine
