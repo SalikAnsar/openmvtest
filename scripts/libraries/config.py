@@ -1,6 +1,5 @@
 import binascii
 import machine
-import sys
 from machine import LED
 import time
 
@@ -26,6 +25,7 @@ COMMAN_CENTER_ADDRS = [221, 222, 228, 219]
 uid = binascii.hexlify(machine.unique_id())
 my_addr = UID_TO_ADDR.get(uid)
 
+
 def get_my_addr(default=None):
     """Return node address for current board UID."""
     if my_addr is None:
@@ -33,9 +33,11 @@ def get_my_addr(default=None):
         return None
     return my_addr
 
-def running_as_cc(): # NOT in use, dynamic CC applied
+
+def running_as_cc():  # NOT in use, dynamic CC applied
     # Input: None; Output: bool indicating if this device is the command center
     return my_addr in COMMAN_CENTER_ADDRS
+
 
 def led_restart_blinker():
     led = LED("LED_GREEN")

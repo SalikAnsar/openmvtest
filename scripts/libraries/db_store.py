@@ -1,16 +1,10 @@
-import os
-import utime
-import gc
-
-import logger
-
-
-import os
-import utime
-import gc
-import ubinascii
-import hashlib
 import asyncio
+import gc
+import hashlib
+import os
+import ubinascii
+import utime
+
 import logger
 
 
@@ -192,13 +186,13 @@ class DbStore(StoreUtils):
         self.image_list_buffer = None
         self._last_sent_img_creator = None
         self._init_image_list_buffer()
-        
+
         # counters
         self.image_queued_count = 0
         self.img_sent_count = 0
         self.img_dropped_count = 0
         self.img_failed_count = 0
-        
+
         self.LIMIT_PER_DEVICE = 5
         self.img_retry_count_to_fail = 20
 
@@ -307,9 +301,11 @@ class DbStore(StoreUtils):
     # Image ring operations ---------------------------------------------
 
     def storage_available(self, creator):
-        # for self.my_addr we will be reserving the self.LIMIT_PER_DEVICE imagee space, (like if self.my_addr have 2 stored for now, we will be assuming 3 more will be reserved for self.my_addr only),
-        # so for creator== self.my_addr, we will always returning true, (as the old image will get dropped, and new image will be stored)
-        # for any other creator we returing true only if its storred images are less than self.LIMIT_PER_DEVICE and queue have space, other than the above reserved space for self.my_addr
+        # For self.my_addr, reserve LIMIT_PER_DEVICE image slots (e.g. if 2 stored,
+        # assume more reserved for self.my_addr only).
+        # For creator == self.my_addr, always True (old images drop, new ones store).
+        # For others: True only if stored count < LIMIT_PER_DEVICE and queue has
+        # space beyond the reservation for self.my_addr.
         try:
             if creator == self.my_addr:
                 return True
@@ -336,10 +332,15 @@ class DbStore(StoreUtils):
             reserved_for_me = max(0, self.LIMIT_PER_DEVICE - my_img_count)
             max_usable_for_others = self.IMG_LIST_CAPACITY - total_filled - reserved_for_me
             if creator_img_count >= self.LIMIT_PER_DEVICE:
-                logger.info(f"[DB] creator={creator} has {creator_img_count} images, exceeding limit of {self.LIMIT_PER_DEVICE}, returning False")
+                logger.info(
+                    f"[DB] creator={creator} has {creator_img_count} images, "
+                    f"exceeding limit of {self.LIMIT_PER_DEVICE}, returning False"
+                )
                 return False
-            if max_usable_for_others <=0:
-                logger.info(f"[DB] no space left in queue for other devices, returning False")
+            if max_usable_for_others <= 0:
+                logger.info(
+                    "[DB] no space left in queue for other devices, returning False"
+                )
                 return False
             return True
         except Exception as e:
@@ -426,8 +427,11 @@ class DbStore(StoreUtils):
                 creator_img_count += 1
             if c_id == self.my_addr:
                 my_img_count += 1
-                    
-        if creator_img_count < self.LIMIT_PER_DEVICE  and self.image_queued_count < self.IMG_LIST_CAPACITY:
+
+        if (
+            creator_img_count < self.LIMIT_PER_DEVICE
+            and self.image_queued_count < self.IMG_LIST_CAPACITY
+        ):
             # Find first empty slot (flag == 0)
             for idx in range(self.IMG_LIST_CAPACITY):
                 slot = self.image_list_buffer[idx]
@@ -436,7 +440,7 @@ class DbStore(StoreUtils):
                     break
             if slot_idx is None:
                 logger.error(
-                    f"[DB] Error in the code, couldn't find empty space saving image"
+                    "[DB] Error in the code, couldn't find empty space saving image"
                 )
                 return False, "empty_slot_not_found:unknown_error"
         else:
@@ -643,11 +647,11 @@ class DbStore(StoreUtils):
         img_md5 = ubinascii.hexlify(hashlib.md5(img_bytes).digest()).decode()
         return epoch_ms, creator_id, retry, img_bytes, img_md5
 
-
     # Listing Getters and Setters for images
+
     def update_img_queued_count(self, count):
         self.image_queued_count = self.image_queued_count + count
-        
+
     def get_img_queued_count(self):
         return self.image_queued_count
 
@@ -656,16 +660,16 @@ class DbStore(StoreUtils):
 
     def get_img_sent_count(self):
         return self.img_sent_count
-        
+
     def update_img_sent_count(self, count):
         self.img_sent_count = self.img_sent_count + count
-    
+
     def get_img_dropped_count(self):
         return self.img_dropped_count
 
     def update_img_dropped_count(self, count):
         self.img_dropped_count = self.img_dropped_count + count
-        
+
     def get_img_failed_count(self):
         return self.img_failed_count
 
@@ -674,13 +678,13 @@ class DbStore(StoreUtils):
 
     def get_fs_succ_count(self):
         return self.file_system_success
-    
+
     def get_fs_err_count(self):
         return self.file_system_err
-    
-    def get_fs_consecutive_err_count(self): # NOT IN USE
+
+    def get_fs_consecutive_err_count(self):  # NOT IN USE
         return self.file_system_consecutive_err
-    
+
     def db_store(self):
         # TODO akash, return th list of dict in form of
         return []
