@@ -1,6 +1,5 @@
 import binascii
 import machine
-import sys
 from machine import LED
 import time
 
@@ -42,12 +41,14 @@ def running_as_cc():  # NOT in use, dynamic CC applied
     # Input: None; Output: bool indicating if this device is the command center
     return my_addr in COMMAN_CENTER_ADDRS
 
+
 def uses_rsa_encryption(msg_type):
     if not ENCRYPTION_ENABLED:
         return False
-    if msg_type in ["*"]: # None of the messages are rsa_encrypted
+    if msg_type in ["*"]:  # None of the messages are rsa_encrypted
         return True
     return False
+
 
 def uses_hybrid_encryption(msg_type):
     if not ENCRYPTION_ENABLED:
@@ -55,6 +56,7 @@ def uses_hybrid_encryption(msg_type):
     if msg_type == "P":
         return True
     return False
+
 
 def led_restart_blinker():
     led = LED("LED_GREEN")

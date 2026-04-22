@@ -4,9 +4,9 @@ for i in range(10):
     time.sleep(1)
 print("Checking imports")
 import logger
-from machine import RTC, UART, Pin, LED
+from machine import UART, Pin, LED
 import machine
-from app_controller import AppController, WIFI_SOCKET_SESSION_TIMEOUT_S
+from app_controller import AppController
 from db_store import DbStore
 import uasyncio as asyncio
 import utime
@@ -29,7 +29,6 @@ from config import (
     uses_rsa_encryption,
 )
 from message_codec import build_heartbeat_payload, parse_heartbeat_rawbytes
-from fs_utils import create_dir_if_not_exists
 from sx1262 import SX1262
 from gps_driver import GPSDriver
 from internet_driver import InternetDriver
@@ -160,7 +159,7 @@ tracx_uart_lock = asyncio.Lock()
 # -----------------------------------▼▼▼▼▼-----------------------------------
 # STATE VARIABLES
 # -------- Start FPS clock -----------
-#clock = time.clock()            # measure frame/sec
+# clock = time.clock()            # measure frame/sec
 
 gps_str = ""
 gps_last_time = -1
@@ -255,6 +254,7 @@ PROCESS_DIR = None
 LOGS_DIR = None
 FS_ROOT = "/sdcard"
 
+
 async def init_device():
     global encnode
     global db_store
@@ -267,12 +267,12 @@ async def init_device():
     clock_start_ms = utime.ticks_ms()  # get millisecond counter
 
     if not await is_sdcard_readable():
-        print(f"SDCARD NOT READABLE")
+        print("SDCARD NOT READABLE")
         return False
 
     logger.info(f"[FS] ==================>>>> SDCARD USABLE : Using FS_ROOT : {FS_ROOT}")
 
-    global PROCESS_ID_STR, LOGS_DIR 
+    global PROCESS_ID_STR, LOGS_DIR
     LOGS_DIR = f"{FS_ROOT}/{PROCESS_ID_STR}/logs"
 
     if PROCESS_ID_STR is None:
@@ -349,6 +349,7 @@ def running_as_cc():
 def running_as_unit():
     return not running_as_cc()
 
+
 async def is_sdcard_readable():
     for attempt in range(5):
         try:
@@ -359,6 +360,7 @@ async def is_sdcard_readable():
         except OSError:
             logger.error(f"[FS] SD card not found/ready, attempt {attempt + 1}/5")
     return False
+
 
 async def logger_state():
     global db_store
@@ -1118,6 +1120,7 @@ def encrypt_if_needed(msg_typ, msg):
     except Exception as e:
         logger.error(f"Error in encrypt_if_needed error: {e}")
         return None
+
 
 def decrypt_if_needed(msg_typ, msgbytes, creator):
     try:
@@ -1913,7 +1916,6 @@ async def person_detection_loop():
                         img_capture_count -= 1
                         continue
 
-
                     await asyncio.sleep(35 if USE_PIR_SENSOR else 900)
                 except Exception as e:
                     await asyncio.sleep(35 if USE_PIR_SENSOR else 900)
@@ -2247,6 +2249,7 @@ def process_message(databytes, rssi=None):
                     ackmessage += b":"
                     trans_msg_typ_copy = trans_msg_typ
                     trans_chunk_md5_copy = trans_chunk_md5
+
                     async def send_ack_multiple():  # send ACK 2 times
                         msg_count = 2
                         for i in range(msg_count):
@@ -2426,6 +2429,7 @@ async def process_packet_queue():  # TODO Anand, (no change)
 # Network Maintenance and Heartbeats (H)
 # ---------------------------------------------------------------------------
 
+
 async def send_heartbeat():
     # Input: None; Output: bool indicating whether heartbeat was successfully sent to a neighbour
     radio_succ_count = radio_sent_succ_count + radio_recd_succ_count
@@ -2449,13 +2453,13 @@ async def send_heartbeat():
         process_id=PROCESS_ID_STR,
     )
     msgbytes = encrypt_if_needed("H", hbmsg_bytes)  # msgbytes is of type bytes, RAW bytes (binary bytes)
-    
+
     sent_succ = False
     if running_as_cc():
-        hb_b64_bytes = ubinascii.b2a_base64(msgbytes).rstrip(b"\n")  
+        hb_b64_bytes = ubinascii.b2a_base64(msgbytes).rstrip(b"\n")
         # Base64 encoded bytes (text-safe for transfer and printable)
         # ubinascii always appends a newline, The = at the end is standard Base64 padding
-        
+
         epoch_ms = get_epoch_ms()
         server_payload = {
             "machine_id": my_addr,
@@ -2520,7 +2524,8 @@ async def keep_generating_heartbeat():
         else:
             consecutive_hb_failures = 0
             logger.info("[HB] ✔✔✔ HB SUCCESS")
-        await asyncio.sleep(HB_WAIT + random.randint(3,10))
+        await asyncio.sleep(HB_WAIT + random.randint(3, 10))
+
 
 def get_curr_spath():
     """ Returns the path with minimum length from network_paths """
@@ -3027,6 +3032,7 @@ class AppHandler:
             img_bytes = None
             gc.collect()
 
+
 async def enter_install_mode():
     global is_install_mode, app_controller
     if is_install_mode:
@@ -3069,7 +3075,7 @@ async def main():
         await reboot_device()
 
     def clear_install_mode_flag():
-        print(f"clear install mode flag")
+        print("clear install mode flag")
         global is_install_mode
         is_install_mode = False
 

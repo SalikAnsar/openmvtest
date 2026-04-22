@@ -74,7 +74,7 @@ class AppController:
         self.init_file_transfer_buffer()
 
         self.is_running = False
-        self.cont_wifi_fail_count = 0 # continuous wifi failures
+        self.cont_wifi_fail_count = 0  # continuous wifi failures
         self._wifi_session_deadline = None
 
     # -------------------------------------------------------------------------
@@ -113,7 +113,6 @@ class AppController:
         loop.create_task(self.wifi_socket_read_loop())
         # loop.create_task(self._periodic_log_sender())
 
-
     async def stop(self):
         """
         Stop WiFi + app communication:
@@ -121,7 +120,7 @@ class AppController:
         - Close socket and disable WiFi.
         """
         try:
-            print(f"stopping app controller")
+            print("stopping app controller")
             self.on_install_mode_exit()
             self.wifi_socket.close()
             self.wifi_nic.disconnect()
@@ -815,7 +814,7 @@ class AppController:
     def report_radio_check_result(self, success_count, success_rate, transfer_rate):
         msg = {
             "message_type": "radio_check",
-            "data": 
+            "data":
                 {
                     "success_count": success_count,
                     "success_rate_percent": success_rate,
@@ -830,7 +829,7 @@ class AppController:
         print(f"Checking radio connectivity with {target_addr} with byte count {byte_count}")
         self.create_and_send_message(
             "radio_check",
-            {"message": f"Checking radio connectivity with {target_addr}"}, 
+            {"message": f"Checking radio connectivity with {target_addr}"},
             timeout=0.5,
         )
 

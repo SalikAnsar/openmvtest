@@ -51,6 +51,7 @@ except ImportError:
 UART_ID = 1
 BAUDRATE = 115200
 
+
 class _UARTSerialAdapter:
     def __init__(self, uart):
         self._uart = uart
@@ -101,7 +102,7 @@ class InternetDriver:
             if not process_id:
                 logger.error("process_id must be a non-empty string")
                 return
-            
+
             self.process_id: str = process_id
             if self.configure_sensor:
                 sensor.reset()
@@ -458,7 +459,7 @@ class InternetDriver:
         if isinstance(data, dict):
             import json
             data = json.dumps(data)
-        
+
         data_length = len(data)
 
         # --- Step 1: Set URL ---
@@ -651,7 +652,7 @@ class InternetDriver:
             radio_succ=3923,
             radio_err=48,
             internet_succ=self.get_upload_success_count(),
-            internet_err=self.get_upload_fail_count()+1,
+            internet_err=self.get_upload_fail_count() + 1,
             fs_succ=32,
             fs_err=1,
             neighbours=[215, 216, 217],
@@ -707,6 +708,7 @@ class InternetDriver:
 # ------------------------------------------------------------------
 # Example Entry point
 # ------------------------------------------------------------------
+
 
 if __name__ == "__main__":
     try:

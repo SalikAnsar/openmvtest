@@ -221,7 +221,7 @@ class DbStore(StoreUtils):
             with open(test_file, "wb") as f:
                 f.write(b"ok")
             os.remove(test_file)
-            
+
             test_file = "/sdcard/processid"
             with open(test_file, "wb") as f:
                 self.process_id_str.encode()
