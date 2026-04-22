@@ -1,13 +1,17 @@
 import binascii
 import machine
+import sys
 from machine import LED
 import time
+
+# Encryption policy
+ENCRYPTION_ENABLED = True
 
 # Map board UID (hex bytes) to node address.
 UID_TO_ADDR = {
     b'e606fe64d709051c': 216,
     b'e076465dd7193d2a': 217,
-    b'e076465dd7090e41': 218,
+    b"e076465dd709102e": 218,
     b"e076465dd7194211": 219,
     b"e076465dd7091027": 220,
     b"e076465dd7090d1c": 221,
@@ -17,7 +21,7 @@ UID_TO_ADDR = {
     b"e076465dd7194025": 225,
     b"e076465dd7194318": 226,
     b"e076465dd7193a09": 227,
-    b"e076465dd709102e": 228,
+    b"e076465dd7090e41": 228,
 }
 
 COMMAN_CENTER_ADDRS = [221, 222, 228, 219]
@@ -38,6 +42,19 @@ def running_as_cc():  # NOT in use, dynamic CC applied
     # Input: None; Output: bool indicating if this device is the command center
     return my_addr in COMMAN_CENTER_ADDRS
 
+def uses_rsa_encryption(msg_type):
+    if not ENCRYPTION_ENABLED:
+        return False
+    if msg_type in ["*"]: # None of the messages are rsa_encrypted
+        return True
+    return False
+
+def uses_hybrid_encryption(msg_type):
+    if not ENCRYPTION_ENABLED:
+        return False
+    if msg_type == "P":
+        return True
+    return False
 
 def led_restart_blinker():
     led = LED("LED_GREEN")

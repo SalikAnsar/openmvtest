@@ -4,7 +4,7 @@ for i in range(10):
     time.sleep(1)
 print("Checking imports")
 import logger
-from machine import UART, Pin, LED
+from machine import RTC, UART, Pin, LED
 import machine
 from app_controller import AppController, WIFI_SOCKET_SESSION_TIMEOUT_S
 from db_store import DbStore
@@ -15,13 +15,20 @@ import image
 import os                   # file system access
 import sys
 import binascii
+import ubinascii
 import struct
 import random
-import ubinascii
 import gc                   # garbage collection for memory management
 import hashlib
-import config
-from utils import int_to_nbytes
+from config import (
+    uid,
+    get_my_addr,
+    led_restart_blinker,
+    ENCRYPTION_ENABLED,
+    uses_hybrid_encryption,
+    uses_rsa_encryption,
+)
+from message_codec import build_heartbeat_payload, parse_heartbeat_rawbytes
 from fs_utils import create_dir_if_not_exists
 from sx1262 import SX1262
 from gps_driver import GPSDriver
@@ -45,11 +52,10 @@ from detect import PIR_PIN, turn_ON_IR_emitter, turn_OFF_IR_emitter
 # ---------------------------------------------------------------------------
 PRODUCTION_MODE = True
 FAKE_LAYOUT_ENABLED = False
-ENCRYPTION_ENABLED = False
 if ENCRYPTION_ENABLED:
     import enc
 
-INSTALL_MODE_TIMEOUT = 60
+INSTALL_MODE_WAIT_TIME = 60
 app_controller = None
 app_handler = None
 APP_DEBUGGING = False
@@ -154,7 +160,7 @@ tracx_uart_lock = asyncio.Lock()
 # -----------------------------------▼▼▼▼▼-----------------------------------
 # STATE VARIABLES
 # -------- Start FPS clock -----------
-# clock = time.clock()            # measure frame/sec
+#clock = time.clock()            # measure frame/sec
 
 gps_str = ""
 gps_last_time = -1
@@ -236,8 +242,7 @@ CHUNK_ID_BYTES = 2
 # -----------------------------------▲▲▲▲▲-----------------------------------
 
 
-uid = config.uid
-my_addr = config.get_my_addr()
+my_addr = get_my_addr()
 print("UID: ", f"{uid}")
 if my_addr is None:
     logger.error(f"error in main.py: Unknown device UID for {uid}")
@@ -250,9 +255,8 @@ PROCESS_DIR = None
 LOGS_DIR = None
 FS_ROOT = "/sdcard"
 
-
-def init_device():
-    global ENCRYPTION_ENABLED, encnode
+async def init_device():
+    global encnode
     global db_store
     if ENCRYPTION_ENABLED:
         encnode = enc.EncNode(my_addr)
@@ -261,6 +265,10 @@ def init_device():
     rtc.datetime((2024, 1, 1, 0, 0, 0, 0, 0))
     global clock_start_ms
     clock_start_ms = utime.ticks_ms()  # get millisecond counter
+
+    if not await is_sdcard_readable():
+        print(f"SDCARD NOT READABLE")
+        return False
 
     logger.info(f"[FS] ==================>>>> SDCARD USABLE : Using FS_ROOT : {FS_ROOT}")
 
@@ -341,6 +349,16 @@ def running_as_cc():
 def running_as_unit():
     return not running_as_cc()
 
+async def is_sdcard_readable():
+    for attempt in range(5):
+        try:
+            await asyncio.sleep((300 * (attempt + 1)) / 1000)
+            os.listdir('/sdcard')
+            logger.debug(f"[FS] SD card available (attempt {attempt + 1})")
+            return True
+        except OSError:
+            logger.error(f"[FS] SD card not found/ready, attempt {attempt + 1}/5")
+    return False
 
 async def logger_state():
     global db_store
@@ -491,10 +509,10 @@ def ellepsis(msg):
 
 def ack_needed(msg_typ):  # msg_type P is devided in (B,I,E)
     # Input: msg_typ: str; Output: bool indicating if acknowledgement required
-    if msg_typ in ["A", "W", "N", "I"]:
+    if msg_typ in ["A", "W", "N", "I", "K"]:
         return False
     # H = heartbeat (separate blocks); K = Android/app-origin message
-    if msg_typ in ["H", "B", "E", "V", "C", "Z", "K"]:
+    if msg_typ in ["H", "B", "E", "V", "C", "Z"]:
         return True
     return False
 
@@ -1091,8 +1109,8 @@ def encrypt_if_needed(msg_typ, msg):
         # Input: msg_typ: str message type, msg: bytes; Output: bytes (possibly encrypted message)
         if not ENCRYPTION_ENABLED:
             return msg
-        # H = heartbeat, "P": file data
-        if msg_typ == "P":
+        # H = heartbeat, P = file data
+        if uses_hybrid_encryption(msg_typ):
             msgbytes = enc.encrypt_hybrid(msg, encnode.get_pub_key())
             logger.debug(f"{msg_typ} : Len msg = {len(msg)}, len msgbytes = {len(msgbytes)}")
             return msgbytes
@@ -1101,21 +1119,20 @@ def encrypt_if_needed(msg_typ, msg):
         logger.error(f"Error in encrypt_if_needed error: {e}")
         return None
 
-
-def is_rsa_encrypted(msg_typ):
-    if not ENCRYPTION_ENABLED:
-        return False
-    if msg_typ in ["*"]:  # not data is rsa_encrypted
-        return True
-    return False
-
-
-def is_hybrid_encrypted(msg_typ):
-    if not ENCRYPTION_ENABLED:
-        return False
-    if msg_typ == "P":
-        return True
-    return False
+def decrypt_if_needed(msg_typ, msgbytes, creator):
+    try:
+        # Input: msg_typ: str message type, msgbytes: bytes, creator: int
+        # Output: bytes (decrypted when encryption applies, else original)
+        if not ENCRYPTION_ENABLED:
+            return msgbytes
+        if uses_hybrid_encryption(msg_typ):
+            return enc.decrypt_hybrid(msgbytes, encnode.get_prv_key(creator))
+        if uses_rsa_encryption(msg_typ):
+            return enc.decrypt_rsa(msgbytes, encnode.get_prv_key(creator))
+        return msgbytes
+    except Exception as e:
+        logger.error(f"Error in decrypt_if_needed error: {e}")
+        return None
 
 # === Send Function ===
 
@@ -1518,7 +1535,7 @@ async def init_tracx_internet():
         from internet_driver import UART_ID, BAUDRATE
         logger.info(f"[CELL] Creating shared UART (id={UART_ID}, baud={BAUDRATE})...")
         tracx_uart = UART(UART_ID, BAUDRATE, timeout=2000)
-        utime.sleep_ms(2000)  # Wait for module to initialize
+        await asyncio.sleep(1)  # safe sleep for stable power supply
 
     # Hold UART lock during init to avoid conflict with GPS
     async with tracx_uart_lock:
@@ -1726,10 +1743,15 @@ async def hb_process(msg_uid, msgbytes, sender):
 
         logger.info(f"[HB] Uploading raw heartbeat data of length {len(msgbytes)} bytes...")
         asyncio.create_task(upload_payload_to_server(server_payload, "heartbeat", creator))
-        if ENCRYPTION_ENABLED and is_rsa_encrypted("H"):
+        if uses_rsa_encryption("H"):
             try:
                 decrypted_msg = enc.decrypt_rsa(msgbytes, encnode.get_prv_key(creator))
                 logger.debug(f"[HB] HB send msg = {decrypted_msg}")
+                try:
+                    parsed_hb = parse_heartbeat_rawbytes(decrypted_msg)
+                    logger.debug(f"[HB] Parsed heartbeat = {parsed_hb}")
+                except Exception as parse_err:
+                    logger.error(f"[HB] Failed to parse decrypted HB payload: {parse_err}")
             except Exception as e:
                 logger.error(f"[HB] Failed to decrypt HB message: {e}")
         else:
@@ -1737,6 +1759,11 @@ async def hb_process(msg_uid, msgbytes, sender):
                 logger.debug(f"[HB] HB send msg = {msgbytes.decode()}")
             except Exception as e:
                 logger.error(f"[HB] Failed to decode HB message: {e}")
+            try:
+                parsed_hb = parse_heartbeat_rawbytes(msgbytes)
+                logger.debug(f"[HB] Parsed heartbeat = {parsed_hb}")
+            except Exception as parse_err:
+                logger.error(f"[HB] Failed to parse HB payload: {parse_err}")
 
         return
     else:
@@ -1886,9 +1913,10 @@ async def person_detection_loop():
                         img_capture_count -= 1
                         continue
 
-                    await asyncio.sleep(1 if USE_PIR_SENSOR else 900)
+
+                    await asyncio.sleep(35 if USE_PIR_SENSOR else 900)
                 except Exception as e:
-                    await asyncio.sleep(1 if USE_PIR_SENSOR else 900)
+                    await asyncio.sleep(35 if USE_PIR_SENSOR else 900)
                     logger.error(f"[PIR] unexpected error in image taking and saving for burst {i}: {e}")
                 finally:
                     try:
@@ -2067,7 +2095,7 @@ def process_message(databytes, rssi=None):
     if msg_typ == "H":
         asyncio.create_task(send_msg("A", my_addr, ackmessage, sender))
         # Validate heartbeat message payload length for encrypted messages
-        if is_rsa_encrypted("H") and len(msgbytes) != 128:
+        if uses_rsa_encryption("H") and len(msgbytes) != 128:
             logger.error(
                 f"[HB] Invalid payload length: {len(msgbytes)} bytes, expected 128 bytes for encrypted message. "
                 f"MID: {msg_uid}, may be corrupted or incomplete."
@@ -2188,16 +2216,12 @@ def process_message(databytes, rssi=None):
                             f"[CHUNK] file type={trans_msg_typ_curr} sent or queued for {creator}_{epoch_ms}.enc")
 
                         global DECRYPT_IMAGE_ON_HOPS
-                        if trans_msg_typ_curr == "P" and DECRYPT_IMAGE_ON_HOPS:
+                        if DECRYPT_IMAGE_ON_HOPS and uses_hybrid_encryption(trans_msg_typ_curr):
                             try:
                                 img_bytes = None
                                 img = None
                                 try:
-                                    if ENCRYPTION_ENABLED:
-                                        img_bytes = enc.decrypt_hybrid(
-                                            recompiled_msgbytes, encnode.get_prv_key(creator))
-                                    else:
-                                        img_bytes = recompiled_msgbytes
+                                    img_bytes = enc.decrypt_hybrid(recompiled_msgbytes, encnode.get_prv_key(creator))
                                     img = image.Image(320, 240, image.JPEG, buffer=img_bytes)
                                     db_store.store_image_raw(epoch_ms, creator, img)
                                     logger.info(
@@ -2223,7 +2247,6 @@ def process_message(databytes, rssi=None):
                     ackmessage += b":"
                     trans_msg_typ_copy = trans_msg_typ
                     trans_chunk_md5_copy = trans_chunk_md5
-
                     async def send_ack_multiple():  # send ACK 2 times
                         msg_count = 2
                         for i in range(msg_count):
@@ -2258,9 +2281,10 @@ def process_message(databytes, rssi=None):
     elif msg_typ == "K":
         msgstr = msgbytes.decode()
         if msgstr == "install_mode":
-            asyncio.create_task(send_msg("K", my_addr, b"installMode", sender))
-            time.sleep(1)
-            asyncio.create_task(enter_install_mode())
+            print(f"install mode {is_install_mode}")
+            if not is_install_mode:
+                asyncio.create_task(enter_install_mode())
+            asyncio.create_task(send_msg("J", my_addr, b"installMode", sender))
         else:
             logger.error(f"[APP] unknown command: {msgstr}")
     elif msg_typ == "A":
@@ -2402,69 +2426,41 @@ async def process_packet_queue():  # TODO Anand, (no change)
 # Network Maintenance and Heartbeats (H)
 # ---------------------------------------------------------------------------
 
-
-def build_heartbeat_payload():
-    """
-    Build fixed-size compact heartbeat payload:
-      image_taken(2), image_sent(2), image_dropped(2), image_failed(2), image_queued(2),
-      radio_succ(3), radio_err(3), internet_succ(3), internet_err(3),
-      fs_succ(2), fs_err(2), process_id(3)
-    Total size: 29 bytes.
-    """
-    global img_capture_count, db_store, internet_module, PROCESS_ID_STR
-    global radio_sent_succ_count, radio_sent_fail_count
-    global radio_recd_succ_count, radio_recd_err_count
-    global radio_recd_crcerr_count, radio_recd_hasherr_count
-
-    radio_succ_count = radio_sent_succ_count + radio_recd_succ_count
-    radio_fail_count = radio_sent_fail_count + radio_recd_err_count + radio_recd_crcerr_count + radio_recd_hasherr_count
-
-    hbmsg_bytes = b""
-    hbmsg_bytes += int_to_nbytes(img_capture_count, 2)
-    hbmsg_bytes += int_to_nbytes(db_store.get_img_sent_count(), 2)
-    hbmsg_bytes += int_to_nbytes(db_store.get_img_dropped_count(), 2)
-    hbmsg_bytes += int_to_nbytes(db_store.get_img_failed_count(), 2)
-    hbmsg_bytes += int_to_nbytes(db_store.get_img_queued_count(), 2)
-
-    hbmsg_bytes += int_to_nbytes(radio_succ_count, 3)
-    hbmsg_bytes += int_to_nbytes(radio_fail_count, 3)
-    hbmsg_bytes += int_to_nbytes(internet_module.get_upload_success_count(), 3)
-    hbmsg_bytes += int_to_nbytes(internet_module.get_upload_fail_count(), 3)
-    hbmsg_bytes += int_to_nbytes(db_store.get_fs_succ_count(), 2)
-    hbmsg_bytes += int_to_nbytes(db_store.get_fs_err_count(), 2)
-    # 3 neighbours and 3 node from sortest path
-    neighbours = get_curr_neighbours() or []
-    for i in range(3):
-        node_id = neighbours[i] if i < len(neighbours) else 0
-        hbmsg_bytes += int_to_nbytes(node_id, 1)
-
-    shortest_path = get_curr_spath() or []
-    for i in range(3):
-        node_id = shortest_path[i] if i < len(shortest_path) else 0
-        hbmsg_bytes += int_to_nbytes(node_id, 1)
-    # Process ID
-    proc_id = (PROCESS_ID_STR or "")[:3]
-    proc_id = proc_id + ("_" * (3 - len(proc_id)))
-    hbmsg_bytes += proc_id.encode()
-    return hbmsg_bytes
-
-
 async def send_heartbeat():
     # Input: None; Output: bool indicating whether heartbeat was successfully sent to a neighbour
-    hbmsg_bytes = build_heartbeat_payload()
+    radio_succ_count = radio_sent_succ_count + radio_recd_succ_count
+    radio_fail_count = radio_sent_fail_count + radio_recd_err_count + radio_recd_crcerr_count + radio_recd_hasherr_count
+    global ENCRYPTION_ENABLED
 
-    msgbytes = encrypt_if_needed("H", hbmsg_bytes)
+    hbmsg_bytes = build_heartbeat_payload(
+        image_taken=img_capture_count,
+        image_sent=db_store.get_img_sent_count(),
+        image_dropped=db_store.get_img_dropped_count(),
+        image_failed=db_store.get_img_failed_count(),
+        image_queued=db_store.get_img_queued_count(),
+        radio_succ=radio_succ_count,
+        radio_err=radio_fail_count,
+        internet_succ=internet_module.get_upload_success_count(),
+        internet_err=internet_module.get_upload_fail_count(),
+        fs_succ=db_store.get_fs_succ_count(),
+        fs_err=db_store.get_fs_err_count(),
+        neighbours=get_curr_neighbours() or [],
+        shortest_path=get_curr_spath() or [],
+        process_id=PROCESS_ID_STR,
+    )
+    msgbytes = encrypt_if_needed("H", hbmsg_bytes)  # msgbytes is of type bytes, RAW bytes (binary bytes)
+    
     sent_succ = False
     if running_as_cc():
-        if isinstance(msgbytes, bytes):
-            hb_data = ubinascii.b2a_base64(msgbytes)
-        else:
-            hb_data = msgbytes
+        hb_b64_bytes = ubinascii.b2a_base64(msgbytes).rstrip(b"\n")  
+        # Base64 encoded bytes (text-safe for transfer and printable)
+        # ubinascii always appends a newline, The = at the end is standard Base64 padding
+        
         epoch_ms = get_epoch_ms()
         server_payload = {
             "machine_id": my_addr,
             "msg_typ": "H",
-            "data": hb_data,
+            "data": hb_b64_bytes,
             "epoch_ms": epoch_ms,
             "enc": False
         }
@@ -2523,9 +2519,8 @@ async def keep_generating_heartbeat():
                     logger.error(f"reinitializing LoRa: {e}")
         else:
             consecutive_hb_failures = 0
-            logger.info("[HB] HB SUCCESS")
-        await asyncio.sleep(HB_WAIT + random.randint(3, 10))
-
+            logger.info("[HB] ✔✔✔ HB SUCCESS")
+        await asyncio.sleep(HB_WAIT + random.randint(3,10))
 
 def get_curr_spath():
     """ Returns the path with minimum length from network_paths """
@@ -3032,55 +3027,31 @@ class AppHandler:
             img_bytes = None
             gc.collect()
 
-
-def led_restart_blinker():
-    led = LED("LED_GREEN")
-    blink_count = 5
-    blink_duration = 0.5
-    for i in range(blink_count):
-        led.on()
-        time.sleep(blink_duration)
-        led.off()
-        time.sleep(blink_duration)
-
-
 async def enter_install_mode():
     global is_install_mode, app_controller
     if is_install_mode:
-        logger.warning("[INSTALL] Already in install mode, ignoring re-entry request")
-        return
+        logger.warning("[INSTALL] 𓆦𓆦𓆦𓆦𓆦𓆦❯❯ Already in install mode, ignoring req... ❮❮𓆦𓆦𓆦𓆦𓆦𓆦")
+        return True
 
-    logger.info("[INSTALL] Re-entering install mode...")
+    logger.info("[INSTALL] 𓆦𓆦𓆦𓆦𓆦𓆦❯❯ Entering install mode... ❮❮𓆦𓆦𓆦𓆦𓆦𓆦")
     is_install_mode = True
-    try:
-        if app_controller is not None:
-            app_controller.stop()
-            asyncio.create_task(send_msg("K", my_addr, b"ME_I", 100))
+    await app_controller.start()
 
-    except Exception as e:
-        logger.warning(f"[INSTALL] Error stopping app_controller: {e}")
+    logger.info(f"[INSTALL] Waiting up to {INSTALL_MODE_WAIT_TIME}s for app connection...")
+    await asyncio.sleep(INSTALL_MODE_WAIT_TIME)
 
-    app_controller.start()
-
-    logger.info(
-        f"[INSTALL] WiFi app session will auto-disconnect after {WIFI_SOCKET_SESSION_TIMEOUT_S}s "
-        "from successful socket connect"
-    )
-    logger.info(f"[INSTALL] Waiting up to {INSTALL_MODE_TIMEOUT}s for app connection...")
-    await asyncio.sleep(INSTALL_MODE_TIMEOUT)
-
-    logger.info("[INSTALL] Checking if app still connected after timeout...")
+    logger.info("[INSTALL] Checking if app/wifi_connection still alive after waittime...")
     while True:
-        if not app_controller.app_alive():
-            logger.info("[INSTALL] App not alive, exiting install mode")
-            asyncio.create_task(send_msg("K", my_addr, b"ME_I", 100))
+        app_alive = app_controller.app_alive()
+        if not app_alive:
+            logger.info("[INSTALL] App/wifi_connection not alive, exiting install mode")
             break
         await asyncio.sleep(1)
 
     is_install_mode = False
-    app_controller.stop()
-    asyncio.create_task(send_msg("K", my_addr, b"ME_I", 100))
-    logger.info("[INSTALL] Returned to process mode")
+    await app_controller.stop()
+    # asyncio.create_task(send_msg("K", my_addr, b"ME_I", 100)) # Akash TODO check
+    logger.info("[INSTALL] 𓆦𓆦𓆦𓆦𓆦𓆦❯❯ Install mode stopped/exited ❮❮𓆦𓆦𓆦𓆦𓆦𓆦")
 
 # ---------------------------------------------------------------------------
 # Application Entry Point
@@ -3094,10 +3065,11 @@ async def main():
 
     await init_tracx_internet()
 
-    if not init_device():
+    if not await init_device():
         await reboot_device()
 
-    def _clear_install_mode_flag():
+    def clear_install_mode_flag():
+        print(f"clear install mode flag")
         global is_install_mode
         is_install_mode = False
 
@@ -3105,14 +3077,14 @@ async def main():
     app_controller = AppController(
         app_handler,
         my_addr,
-        on_install_mode_exit=_clear_install_mode_flag
+        on_install_mode_exit=clear_install_mode_flag
     )
 
     # RADIO, QUEUE =====>
     await init_lora()
     asyncio.create_task(radio_read())
     asyncio.create_task(process_packet_queue())  # Process queued packets asynchronously
-    asyncio.create_task(keep_updating_gps())
+    # asyncio.create_task(keep_updating_gps())
     await asyncio.sleep(1)
     asyncio.create_task(network_request_loop())
     asyncio.create_task(keep_generating_heartbeat())
@@ -3145,5 +3117,7 @@ finally:
     try:
         print(" SHUTTING DOWN - ")
         print(os.listdir(LOGS_DIR))
+        print(os.listdir(STATS_DIR))
+        print(os.listdir(IMAGE_DIR))
     except Exception as e:
         logger.error(f"error in main.py: {e}")
