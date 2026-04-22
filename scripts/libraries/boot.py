@@ -266,10 +266,6 @@ async def init_device():
     global clock_start_ms
     clock_start_ms = utime.ticks_ms()  # get millisecond counter
 
-    if not await is_sdcard_readable():
-        print("SDCARD NOT READABLE")
-        return False
-
     logger.info(f"[FS] ==================>>>> SDCARD USABLE : Using FS_ROOT : {FS_ROOT}")
 
     global PROCESS_ID_STR, LOGS_DIR
@@ -348,19 +344,6 @@ def running_as_cc():
 
 def running_as_unit():
     return not running_as_cc()
-
-
-async def is_sdcard_readable():
-    for attempt in range(5):
-        try:
-            await asyncio.sleep((300 * (attempt + 1)) / 1000)
-            os.listdir('/sdcard')
-            logger.debug(f"[FS] SD card available (attempt {attempt + 1})")
-            return True
-        except OSError:
-            logger.error(f"[FS] SD card not found/ready, attempt {attempt + 1}/5")
-    return False
-
 
 async def logger_state():
     global db_store
