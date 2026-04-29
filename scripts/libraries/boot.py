@@ -115,7 +115,7 @@ CHUNK_DATA_SIZE = 45
 PACKET_PAYLOAD_LIMIT = 60
 RSA_ENCRYPTION_LIMIT = 117
 
-HB_WAIT = 120
+HB_WAIT = 180
 DISCOVERY_COUNT = 100
 SPATH_WAIT = 30
 SPATH_WAIT_2 = 1200
@@ -2498,7 +2498,7 @@ async def keep_generating_heartbeat():
         if not sent_succ:
             consecutive_hb_failures += 1
             logger.warning(f"consecutive heartbeat failures = {consecutive_hb_failures}")
-            if consecutive_hb_failures > 3:
+            if consecutive_hb_failures >= 5:
                 logger.error("Too many consecutive heartbeat failures, Rebooting device")
                 try:
                     await reboot_device()
