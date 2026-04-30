@@ -8,20 +8,21 @@ import network
 import uselect as select
 import ubinascii
 WIFI_COMM_PORT_MAP = {
-    216: 5015,
-    217: 5014,
-    218: 5013,
-    219: 5001,
-    221: 5002,
-    222: 5003,
-    223: 5004,
-    224: 5005,
-    225: 5006,
-    227: 5008,
-    228: 5009,
-    229: 5010,
-    230: 5011,
-    220: 5012,
+    216: 5001,
+    217: 5002,
+    218: 5003,
+    219: 5004,
+    220: 5005,
+    221: 5006,
+    222: 5007,
+    223: 5008,
+    224: 5009,
+    225: 5010,
+    227: 5011,
+    228: 5012,
+    229: 5013,
+    230: 5014,
+    231: 5015,
 }
 # Auto-disconnect WiFi + app TCP session after this many seconds (from successful socket connect).
 WIFI_SOCKET_SESSION_TIMEOUT_S = 600
