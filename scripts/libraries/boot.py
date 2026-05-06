@@ -101,6 +101,7 @@ PACKET_PAYLOAD_LIMIT = 60
 RSA_ENCRYPTION_LIMIT = 117
 
 HB_WAIT = 180
+D_MSG_WAIT = 60
 DISCOVERY_COUNT = 100
 SPATH_WAIT = 30
 SPATH_WAIT_2 = 1200
@@ -2303,6 +2304,28 @@ async def keep_generating_heartbeat():
             logger.info("[HB] ✔✔✔ HB SUCCESS")
         await asyncio.sleep(HB_WAIT + random.randint(3,10))
 
+async def send_debugmsg():
+    # Input: None; Output: bool indicating whether debug payload was sent as broadcast
+    dbgmsg_bytes = build_heartbeat_payload()
+    msgbytes = encrypt_if_needed("D", dbgmsg_bytes)
+    if msgbytes is None:
+        logger.error("[DBG] Failed to build debug message payload")
+        return False
+
+    # Fire-and-forget debug stream: broadcast without expecting ACK.
+    sent_succ = await send_msg("D", my_addr, msgbytes, 65535)
+    if sent_succ:
+        logger.info(f"[DBG] Debug message broadcasted, len={len(msgbytes)}")
+        return True
+    logger.warning("[DBG] Debug message broadcast failed")
+    return False
+
+
+async def keep_generating_debugmsg():
+    while True:
+        await asyncio.create_task(send_debugmsg())
+        await asyncio.sleep(D_MSG_WAIT + random.randint(3,10))
+
 def get_curr_spath():
     """ Returns the path with minimum length from network_paths """
     global network_paths
@@ -2786,10 +2809,17 @@ async def enter_install_mode():
 # ---------------------------------------------------------------------------
 # Application Entry Point
 # ---------------------------------------------------------------------------
+async def keep_blinking_restart_led():
+    while True:
+        await asyncio.sleep(300)  # 5 minutes
+        await config.led_restart_blinker()
+
+
 async def main():
     global app_handler, app_controller
     print(f"Entering MAIN loop... [PROCESS MODE]")
-    config.led_restart_blinker()
+    await config.led_restart_blinker()
+    asyncio.create_task(keep_blinking_restart_led())
 
     await init_tracx_internet()
 
@@ -2816,6 +2846,7 @@ async def main():
     await asyncio.sleep(1)
     asyncio.create_task(network_request_loop())
     asyncio.create_task(keep_generating_heartbeat())
+    asyncio.create_task(keep_generating_debugmsg())
 
     # IMAGE DETECTION =====>
     asyncio.create_task(person_detection_loop())
