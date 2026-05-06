@@ -30,36 +30,30 @@ class EncNode:
 
     def get_prv_key_self(self):
         return self.rsa_priv.get_pvt_key(self.my_addr)
-
+ 
     def get_prv_key(self, othernode):
         return self.rsa_priv.get_pvt_key(othernode)
-
 
 def setup_aes():
     aes_key = os.urandom(32)
     return aes_key
 
-
 def setup_iv():
     iv = os.urandom(16)
     return iv
-
 
 def load_rsa(encnode):
     pubkey = encnode.get_pub_key()
     privkey = encnode.get_prv_key_self()
     return pubkey, privkey
 
-
 def pad(data):
     pad_len = 16 - (len(data) % 16)
     return data + bytes([pad_len] * pad_len)
 
-
 def unpad(data):
     num_bytes_to_remove = 0 - int(data[-1])
     return data[:num_bytes_to_remove]
-
 
 def encrypt_aes(msg, aes_key, iv):
     aes = ucryptolib.aes(aes_key, 2, iv)  # mode 2 = CBC
@@ -67,20 +61,16 @@ def encrypt_aes(msg, aes_key, iv):
     encrypted_data = aes.encrypt(padded_data)
     return encrypted_data
 
-
 def decrypt_aes(encrypted_msg, iv, aes_key):
     aes = ucryptolib.aes(aes_key, 2, iv)  # mode 2 = CBC
     decrypted_msg = unpad(aes.decrypt(encrypted_msg))
     return decrypted_msg
 
-
-def encrypt_rsa(msgstr, public_key):  # Max 117 bytes
+def encrypt_rsa(msgstr, public_key): # Max 117 bytes
     return encrypt(msgstr, public_key)
-
 
 def decrypt_rsa(msgstr, private_key):
     return decrypt(msgstr, private_key)
-
 
 def encrypt_hybrid(msg, public_key):
     # AES key 32 bytes, IV 16bytes, Message encrypted.
@@ -93,21 +83,18 @@ def encrypt_hybrid(msg, public_key):
     msg_aes = encrypt_aes(msg, aes_key, iv)
     return aes_key_rsa + iv_rsa + msg_aes
 
-
 def decrypt_hybrid(msg, private_key):
     aes_key = decrypt_rsa(msg[:128], private_key)
     iv = decrypt_rsa(msg[128:256], private_key)
     msg_decrypt = decrypt_aes(msg[256:], iv, aes_key)
     return msg_decrypt
 
-
 # Debugging only
 def get_rand(n):
     rstr = ""
     for i in range(n):
-        rstr += chr(65 + random.randint(0, 25))
+        rstr += chr(65+random.randint(0,25))
     return rstr
-
 
 # Debugging only
 def test_encryption(encnode, nodeaddr, n2, enctype):
@@ -122,9 +109,9 @@ def test_encryption(encnode, nodeaddr, n2, enctype):
         logger.error("WRONG INPUT")
         return
     t1 = utime.ticks_diff(utime.ticks_ms(), clock_start)
-    logger.info(f"Setup key in time {t1 - t0} mili seconds")
+    logger.info(f"Setup key in time {t1-t0} mili seconds")
     lenstr = 1
-    for i in range(1, n2):
+    for i in range(1,n2):
         t2 = utime.ticks_diff(utime.ticks_ms(), clock_start)
         teststr = get_rand(lenstr)
         t3 = utime.ticks_diff(utime.ticks_ms(), clock_start)
@@ -147,14 +134,12 @@ def test_encryption(encnode, nodeaddr, n2, enctype):
         else:
             return
         t5 = utime.ticks_diff(utime.ticks_ms(), clock_start)
-        logger.info(
-            f"{enctype}@{nodeaddr} : Encrypting {len(teststr)} to {len(teststr_enc)}, "
-            f"creation time = {t3 - t2}, enc time = {t4 - t3}, decrypt time = {t5 - t4}"
+        logger.info(f"{enctype}@{nodeaddr} : Encrypting {len(teststr)} to {len(teststr_enc)}, "
+            f"creation time = {t3-t2}, enc time = {t4-t3}, decrypt time = {t5-t4}"
         )
         if teststr.encode() != teststr_decrypt:
             logger.error(f"Strings DONT match {teststr} != {teststr_decrypt}")
-        lenstr = lenstr * 2
-
+        lenstr = lenstr*2
 
 def main():
     encnode = EncNode(9)
@@ -172,7 +157,6 @@ def main():
     encnode = EncNode(223)
     test_encryption(encnode, 223, 5, "RSA")
     test_encryption(encnode, 223, 5, "HYBRID")
-
 
 if __name__ == "__main__":
     main()

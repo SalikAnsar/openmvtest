@@ -171,7 +171,7 @@ class DbStore(StoreUtils):
         self.logs_dir = None
 
         if self.sdcard_available:
-            logger.info(f"[DB] SD card usable, using FS_ROOT={self.fs_root}")
+            logger.info(f"[DB] ⛃⛃⛃⛁⛁⛁ SD CARD AVAILABLE & USABLE, using fs_root={self.fs_root}")
             self.process_dir = f"{self.fs_root}/{self.process_id_str}"
             self.image_dir = f"{self.process_dir}/all_images"
             self.logs_dir = f"{self.process_dir}/logs"
@@ -179,7 +179,7 @@ class DbStore(StoreUtils):
             self._create_dir_if_not_exists(self.image_dir)
             self._create_dir_if_not_exists(self.logs_dir)
         else:
-            logger.warning("[DB] SD card not available, operating in memory-only mode")
+            logger.warning("[DB] ⛃⛃⛃⛁⛁⛁ SD CARD NOT AVAILABLE/USABLE, operating in memory-only mode")
 
         # ---- TASK 2: in-transit recompile buffer ----
         # self.image_recompile_buffer = None
@@ -221,7 +221,7 @@ class DbStore(StoreUtils):
             with open(test_file, "wb") as f:
                 f.write(b"ok")
             os.remove(test_file)
-
+            
             test_file = "/sdcard/processid"
             with open(test_file, "wb") as f:
                 self.process_id_str.encode()

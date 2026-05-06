@@ -1,13 +1,10 @@
 from utime import sleep_ms
 
-
 def ASSERT(state):
     assert state == ERR_NONE, ERROR[state]
 
-
 def yield_():
     sleep_ms(1)
-
 
 SX126X_FREQUENCY_STEP_SIZE = 0.9536743164
 SX126X_MAX_PACKET_LENGTH = const(255)
@@ -404,5 +401,5 @@ ERROR = {
     -802: 'ERR_INVALID_NUM_REPEATERS',
     -803: 'ERR_INVALID_REPEATER_CALLSIGN',
     -804: 'ERR_INVALID_PACKET_TYPE',
-    -805: 'ERR_INVALID_PACKET_LENGTH',
-}
+    -805: 'ERR_INVALID_PACKET_LENGTH'
+    }

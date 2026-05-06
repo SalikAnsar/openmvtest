@@ -16,7 +16,7 @@ BAUDRATE = 115200
 
 class GPSDriver:
     """GPS driver for TracX-1b module (GPS/GNSS only)"""
-
+    
     def __init__(self, uart=None, uart_id=UART_ID, baudrate=BAUDRATE):
         """
         Initialize GPS driver with UART configuration
@@ -29,7 +29,7 @@ class GPSDriver:
         self.uart_id = uart_id
         self.baudrate = baudrate
         self.gps_initialized = False
-
+    
     def _send_at(self, cmd, wait_ms=1000, retry=3):
         """Send AT command and return response"""
         if self.uart is None:
@@ -37,22 +37,22 @@ class GPSDriver:
             logger.debug("[GPS] UART initialized, waiting for module...")
             time.sleep_ms(2000)  # Wait for module to initialize
         # If shared UART is provided, it's already initialized
-
+        
         # Clear buffer before sending
         while self.uart.any():
             self.uart.read()
-
+        
         for attempt in range(retry):
             # logger.debug(f"[GPS] Sending: {cmd} (attempt {attempt+1}/{retry})")
             self.uart.write((cmd + "\r\n").encode())
-
+            
             end = time.ticks_ms() + wait_ms
             resp = b""
             while time.ticks_diff(end, time.ticks_ms()) > 0:
                 if self.uart.any():
                     resp += self.uart.read()
                 time.sleep_ms(10)
-
+            
             # Check if we got a response
             if len(resp) > 0:
                 try:
@@ -64,35 +64,35 @@ class GPSDriver:
                 return resp
             elif attempt < retry - 1:
                 # No response, retry after delay
-                logger.debug("[GPS] No response, retrying...")
+                logger.debug(f"[GPS] No response, retrying...")
                 time.sleep_ms(500)
-
+        
         # No response after retries
         logger.debug("[GPS] Response: (empty after retries)")
         return b""
-
+    
     def _check_response(self, resp, expected="OK"):
         """Check if response contains expected string"""
         return expected.encode() in resp
-
+    
     def initialize_gps(self):
         """Enable GPS/GNSS on TracX-1b module"""
         logger.info("[GPS] Initializing GPS...")
-
+        
         # Initialize UART if not already done (and not shared)
         if self.uart is None:
             self.uart = UART(self.uart_id, self.baudrate, timeout=2000)
             logger.info("[GPS] UART initialized, waiting for module...")
             time.sleep_ms(2000)  # Wait for module to initialize
         # If shared UART is provided, it's already initialized
-
+        
         # Test AT command
         resp = self._send_at("AT", 1000, retry=3)
         if not self._check_response(resp):
             logger.error("[GPS] No AT response!")
             return False
         # logger.debug("[GPS] Module responding to AT")
-
+        
         # Disable echo
         self._send_at("ATE0", 500)
 
@@ -106,10 +106,10 @@ class GPSDriver:
             self.gps_initialized = True
             logger.info("[GPS] GPS initialized successfully")
             return True
-
+        
         logger.error("[GPS] GPS initialization failed")
         return False
-
+    
     def get_gps_location(self):
         """
         Query GPS location
@@ -118,10 +118,10 @@ class GPSDriver:
         if not self.gps_initialized:
             if not self.initialize_gps():
                 return None, None, None
-
+        
         resp = self._send_at("AT+QGPSLOC?", 3000)
         return self._parse_gps_response(resp)
-
+    
     def _utc_to_local(self, dd, mo, yy, hh, mm, ss, tz_offset=5.5):
         """Convert UTC time to local time using timezone offset (IST = UTC+5:30)"""
         dd, mo = int(dd), int(mo)
@@ -139,14 +139,14 @@ class GPSDriver:
         m = (secs % 3600) // 60
         s = secs % 60
         return "%02d/%02d/20%s %02d:%02d:%02d" % (dd, mo, yy, h, m, s)
-
+    
     def _parse_gps_response(self, resp):
         """Parse AT+QGPSLOC? response - returns (lat, lon, time_str) or (None, None, None)"""
         try:
             text = resp.decode("ascii")
         except:
             return None, None, None
-
+        
         if "+CME ERROR" in text:
             # 516 = GPS not fixed (cold start, weak signal, indoors); 505 = no fix in newer firmware
             if "516" in text or "505" in text:
@@ -154,7 +154,7 @@ class GPSDriver:
             return None, None, None
         if "+QGPSLOC:" not in text:
             return None, None, None
-
+        
         for line in text.split("\n"):
             if not line.startswith("+QGPSLOC:"):
                 continue
@@ -190,9 +190,9 @@ class GPSDriver:
             except (ValueError, IndexError, TypeError) as e:
                 logger.warning(f"[GPS] Parse error for line: {e}")
                 continue
-        # logger.debug("[GPS] Module responding to AT")
+   # logger.debug("[GPS] Module responding to AT")
         return None, None, None
-
+    
     def get_gps_time_components(self, time_str):
         """
         Parse GPS time string and return RTC-compatible tuple
@@ -201,13 +201,13 @@ class GPSDriver:
         """
         if time_str is None:
             return None
-
+        
         try:
             # Parse time string: "DD/MM/YYYY HH:MM:SS"
             date_part, time_part = time_str.split(" ")
             dd, mm, yyyy = date_part.split("/")
             hh, mm_sec, ss = time_part.split(":")
-
+            
             # RTC.datetime format: (year, month, day, weekday, hour, minute, second, microsecond)
             # weekday: 0=Monday, 6=Sunday (can be 0 for now)
             # yearday: day of year (can be 0 for now)
