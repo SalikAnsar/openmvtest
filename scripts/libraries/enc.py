@@ -1,42 +1,32 @@
 import ucryptolib
 import os
 import time as utime
-from rsa.key import newkeys, PublicKey, PrivateKey
-from rsa.pkcs1 import encrypt, decrypt, sign, verify
-import rsa
+from rsa.pkcs1 import encrypt, decrypt
 import logger
-
 import random
+import enc_priv
+import enc_pub
 
-    
+
 # ===== REMOVE BEFORE FINALIZING =====
-run_on_omv = True
-try:
-    import omv
-except:
-    run_on_omv = False
+# import omv
 
-if True: # not run_on_omv:
-    import enc_priv
-# ====================================
 
 class EncNode:
     def __init__(self, my_addr):
         self.my_addr = my_addr
-        e_pub = 65537
-        pub_filename = f"{my_addr}.pub"
-        try:
-            logger.debug(f"Loading public key from file {pub_filename}")
-            with open(pub_filename, "r") as pub_file:
-                n_pub_from_file = int(pub_file.readline().strip())
-        except OSError as e:
-            logger.error(f"could not open '{pub_filename}' ({e}).")
-            raise
-        self.pubkey = PublicKey(n_pub_from_file, e_pub)
-        self.rsa_priv = enc_priv.PrivKeyRepo() # TODO REMOVE
+        self.rsa_pub = enc_pub.PubKeyRepo()
+        self.pubkey = self.rsa_pub.get_pub_key(my_addr)
+        if self.pubkey is None:
+            logger.error(f"Public key not found for address {my_addr}")
+            raise ValueError(f"Public key not found for address {my_addr}")
+        self.rsa_priv = enc_priv.PrivKeyRepo()  # TODO REMOVE
 
     def get_pub_key(self):
         return self.pubkey
+
+    def get_pub_key_for(self, address):
+        return self.rsa_pub.get_pub_key(address)
 
     def get_prv_key_self(self):
         return self.rsa_priv.get_pvt_key(self.my_addr)
@@ -144,7 +134,9 @@ def test_encryption(encnode, nodeaddr, n2, enctype):
         else:
             return
         t5 = utime.ticks_diff(utime.ticks_ms(), clock_start)
-        logger.info(f"{enctype}@{nodeaddr} : Encrypting {len(teststr)} to {len(teststr_enc)}, creation time = {t3-t2}, enc time = {t4-t3}, decrypt time = {t5-t4}")
+        logger.info(f"{enctype}@{nodeaddr} : Encrypting {len(teststr)} to {len(teststr_enc)}, "
+            f"creation time = {t3-t2}, enc time = {t4-t3}, decrypt time = {t5-t4}"
+        )
         if teststr.encode() != teststr_decrypt:
             logger.error(f"Strings DONT match {teststr} != {teststr_decrypt}")
         lenstr = lenstr*2

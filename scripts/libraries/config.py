@@ -1,13 +1,14 @@
 import binascii
 import machine
-import sys
 from machine import LED
-import time
+import uasyncio as asyncio
 
 # Map board UID (hex bytes) to node address.
 UID_TO_ADDR = {
-    b'e076465dd7090e41': 218,
-    b"e076465dd7194211": 219,
+    b'e606fe64d709051c': 216,
+    b'e076465dd7193d2a': 217,
+    b"e076465dd709102e": 218,
+    b'e606fe64d7091126': 219,
     b"e076465dd7091027": 220,
     b"e076465dd7090d1c": 221,
     b"e076465dd719431e": 222,
@@ -16,7 +17,9 @@ UID_TO_ADDR = {
     b"e076465dd7194025": 225,
     b"e076465dd7194318": 226,
     b"e076465dd7193a09": 227,
-    b"e076465dd709102e": 228,
+    b"e076465dd7090e41": 228,
+    b"e606fe64d7090425": 229,
+    b"e606fe64d7110c31": 231,
 }
 
 COMMAN_CENTER_ADDRS = [221, 222, 228, 219]
@@ -31,16 +34,16 @@ def get_my_addr(default=None):
         return None
     return my_addr
 
-def running_as_cc(): # NOT in use, dynamic CC applied
+def running_as_cc():  # NOT in use, dynamic CC applied
     # Input: None; Output: bool indicating if this device is the command center
     return my_addr in COMMAN_CENTER_ADDRS
 
-def led_restart_blinker():
+async def led_restart_blinker():
     led = LED("LED_GREEN")
     blink_count = 5
-    blink_duration = 0.5
+    blink_duration = 0.1
     for i in range(blink_count):
         led.on()
-        time.sleep(blink_duration)
+        await asyncio.sleep(blink_duration)
         led.off()
-        time.sleep(blink_duration)
+        await asyncio.sleep(blink_duration)

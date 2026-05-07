@@ -24,3 +24,5 @@ def warning(m):
     log_internal(f"[WARNING] : {m}")
 def error(m):
     log_internal(f"[ERROR] : {m}")
+def fatal(m):
+    log_internal(f"[FATAL] : {m}")

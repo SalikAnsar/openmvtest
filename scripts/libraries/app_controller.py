@@ -9,20 +9,30 @@ import network
 import uselect as select
 import ubinascii
 WIFI_COMM_PORT_MAP = {
-        218: 5013,
-        219: 5001,
-        221: 5002,
-        222: 5003,
-        223: 5004,
-        224: 5005,
-        225: 5006,
-        227: 5008,
-        228: 5009,
-        229: 5010,
-        230: 5011,
-        220: 5012,
+        216: 5001,
+        217: 5002,
+        218: 5003,
+        219: 5004,
+        220: 5005,
+        221: 5006,
+        222: 5007,
+        223: 5008,
+        224: 5009,
+        225: 5010,
+        226: 5011,
+        227: 5012,
+        228: 5013,
+        229: 5014,
+        230: 5015,
+        231: 5016,
+        232: 5017,
+        233: 5018,
+        234: 5019,
+        235: 5020
         }
-WIFI_COMM_PORT = 0
+        
+# Auto-disconnect WiFi + app TCP session after this many seconds (from successful socket connect).
+WIFI_SOCKET_SESSION_TIMEOUT_S = 600
 wifi_socket = None
 wifi_nic = None
 last_connection_attempt_time = 0
@@ -42,12 +52,11 @@ class AppController:
     module-level globals, which makes it easier to reason about and re‑use.
     """
 
-    def __init__(self, app_handler, my_addr):
-        """
-        Initialize controller with the application handler and node address.
-        """
+    def __init__(self, app_handler, my_addr, on_install_mode_exit=None):
+
         self.apphandler = app_handler
         self.my_addr = my_addr
+        self.on_install_mode_exit = on_install_mode_exit
         self.wifi_ssid = "vyom"
         self.wifi_password = "12345678"
 
@@ -73,7 +82,8 @@ class AppController:
         self.init_file_transfer_buffer()
 
         self.is_running = False
-        self.consecutive_wifi_failures = 0
+        self.cont_wifi_fail_count = 0 # continuous wifi failures
+        self._wifi_session_deadline = None
 
     # -------------------------------------------------------------------------
     # WiFi / socket setup
@@ -94,7 +104,7 @@ class AppController:
     # High-level control: start/stop/app_alive
     # -------------------------------------------------------------------------
 
-    def start(self):
+    async def start(self):
         """
         Start WiFi + app communication:
         - Initialize WiFi (STA) if debugging is enabled.
@@ -102,26 +112,34 @@ class AppController:
         - Start socket read loop task.
         """
         self.is_running = True
+        # self._monitor_wifi_connection()
+        # self.wifi_socket_read_loop()
+        # asyncio.create_task(self._monitor_wifi_connection())
+        # asyncio.create_task(self.wifi_socket_read_loop())
         loop = asyncio.get_event_loop()
         loop.create_task(self._monitor_wifi_connection())
         loop.create_task(self.wifi_socket_read_loop())
         # loop.create_task(self._periodic_log_sender())
 
 
-    def stop(self):
+    async def stop(self):
         """
         Stop WiFi + app communication:
         - Signal background loops to exit.
         - Close socket and disable WiFi.
         """
         try:
+            print(f"stopping app controller")
+            self.on_install_mode_exit()
             self.wifi_socket.close()
             self.wifi_nic.disconnect()
             self.wifi_nic.active(False)
-        except Exception:
+        except Exception as e:
+            print(f"Error closing socket: {e}")
             pass
         self.wifi_socket = None
         self.wifi_nic = None
+        self._wifi_session_deadline = None
         self.is_running = False
 
     def app_alive(self):
@@ -130,7 +148,16 @@ class AppController:
         consider the app "alive" while WiFi comms are enabled and
         we still have an open socket.
         """
-        return self.is_running and self.consecutive_wifi_failures < 3
+        if not self.is_running:
+            logger.info("[APP] App not running, self.is_running = False")
+            return False
+        if not self.wifi_nic.isconnected():
+            logger.info("[APP] WiFi not connected, self.wifi_nic.isconnected() = False")
+            return False
+        if self.cont_wifi_fail_count >= 3:
+            logger.info("[APP] Continuous wifi failures, self.cont_wifi_fail_count = {self.cont_wifi_fail_count}")
+            return False
+        return True
 
     # -------------------------------------------------------------------------
     # WiFi / socket setup internals
@@ -179,6 +206,7 @@ class AppController:
 
         except Exception as e:
             logger.error(f"[WIFI] init error: {e}")
+            
             if self.wifi_nic is not None:
                 try:
                     self.wifi_nic.disconnect()
@@ -194,6 +222,7 @@ class AppController:
             pass
         if sock == self.wifi_socket:
             self.wifi_socket = None
+            self._wifi_session_deadline = None
 
     def send_data_to_app(self, data, timeout=0.1):
         if self.wifi_socket is None:
@@ -240,6 +269,7 @@ class AppController:
                 except:
                     pass
                 self.wifi_socket = None
+                self._wifi_session_deadline = None
             return
 
         is_connected = self.wifi_nic.isconnected()
@@ -251,6 +281,7 @@ class AppController:
             except:
                 pass
             self.wifi_socket = None
+            self._wifi_session_deadline = None
 
     async def _monitor_wifi_connection(self):
         """
@@ -272,7 +303,13 @@ class AppController:
                     logger.debug("[WIFI] WiFi connection status: connected")
                     
                     if self.wifi_socket is not None and self._is_socket_alive():
-                        self.consecutive_wifi_failures = 0 
+                        self.cont_wifi_fail_count = 0
+                        # if (
+                        #     self._wifi_session_deadline is not None
+                        #     and time.time() >= self._wifi_session_deadline
+                        # ):
+                        #     await self._wifi_session_timeout_disconnect()
+                        #     continue
                     else:
                         self._init_socket_connection()
 
@@ -281,18 +318,18 @@ class AppController:
                     logger.info("[WIFI] WiFi not connected, attempting to reconnect...")
                     success = await self._init_wifi()
                     if success:
-                        self.consecutive_wifi_failures = 0
+                        self.cont_wifi_fail_count = 0
                         logger.info("[WIFI] WiFi reconnection successful!")
                         await asyncio.sleep(connected_check_interval)
                     else:
-                        self.consecutive_wifi_failures += 1
+                        self.cont_wifi_fail_count += 1
                         logger.warning(
                             "[WIFI] WiFi reconnection failed, "
                             f"will retry in {disconnected_check_interval} seconds"
                         )
                         await asyncio.sleep(disconnected_check_interval)
             except Exception as e:
-                self.consecutive_wifi_failures += 1
+                self.cont_wifi_fail_count += 1
                 logger.error(f"[WIFI] Error in WiFi connection monitoring: {e}")
                 await asyncio.sleep(error_backoff_interval)
 
@@ -314,10 +351,12 @@ class AppController:
             if self.wifi_nic:
                 self.wifi_nic.close()
             self.wifi_socket = None
+            self._wifi_session_deadline = None
             return False
 
         if self.wifi_socket is not None:
             self.wifi_socket = None
+            self._wifi_session_deadline = None
 
         try:
             self.last_connection_attempt_time = time.time()
@@ -337,10 +376,10 @@ class AppController:
                         break
 
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(10)
+                    sock.settimeout(3)
 
                     print(
-                        f"Connecting to {target_ip}:{self.wifi_comm_port}..."
+                        f"Connecting to {target_ip}:{self.wifi_comm_port}"
                         f" (attempt {attempt + 1}/{max_retries})"
                     )
                     sock.connect((target_ip, self.wifi_comm_port))
@@ -349,9 +388,9 @@ class AppController:
                 except Exception as e:
                     print(f"Connection attempt {attempt + 1} failed: {e}")
                     if attempt < max_retries - 1:
-                        time.sleep(1)
+                        asyncio.sleep(1)
                     else:
-                        self.consecutive_wifi_failures += 1
+                        self.cont_wifi_fail_count += 1
                         print(
                             "All connection attempts failed. "
                             "Will retry in monitoring loop."
@@ -359,20 +398,35 @@ class AppController:
 
             if new_socket is not None:
                 self.wifi_socket = new_socket
+                self._wifi_session_deadline = time.time() + WIFI_SOCKET_SESSION_TIMEOUT_S
                 print(
                     f"info - WiFi communication enabled, "
                     f"connected to {target_ip}:{self.wifi_comm_port}"
                 )
-                self.consecutive_wifi_failures = 0
+                self.cont_wifi_fail_count = 0
                 self.update_hbstatus()
                 return True
 
             self.wifi_socket = None
+            self._wifi_session_deadline = None
             return False
         except Exception as e:
             print(f"ERROR - Failed to initialize WiFi communication: {e}")
             self.wifi_socket = None
+            self._wifi_session_deadline = None
             return False
+
+    async def _wifi_session_timeout_disconnect(self):
+        """Close WiFi + app socket after WIFI_SOCKET_SESSION_TIMEOUT_S from connect."""
+        logger.info("[WIFI] App session timed out; disconnecting WiFi and socket")
+        self._wifi_session_deadline = None
+        try:
+            if self.wifi_socket is not None:
+                self.create_and_send_message("disconnect", "session_timeout")
+                await asyncio.sleep(0.3)
+        except Exception:
+            pass
+        await self.stop()
 
     # -------------------------------------------------------------------------
     # Socket read loop
@@ -489,8 +543,7 @@ class AppController:
                     await asyncio.sleep(0.1)
                 elif errno_val in (104, 107):
                     print(f"[WIFI_READ] Connection lost: {e}")
-                    self.wifi_socket.close()
-                    self.wifi_socket = None
+                    self._close_socket_safely(self.wifi_socket)
                     self._message_buffer = ""
                     self.recv_timeout = 0.1
                     consecutive_empty_reads = 0
@@ -642,12 +695,12 @@ class AppController:
                 self.recv_timeout = 0.1
                 self._file_transfer_state = None
                 logger.error("==== Rebooting the device in 10 seconds ==== ")
-                time.sleep(10)
+                asyncio.sleep(10)
                 try:
                     os.sync()
                 except (OSError, AttributeError):
                     pass
-                time.sleep(0.5)
+                asyncio.sleep(0.5)
                 machine.reset()
             else:
                 logger.error(
@@ -786,7 +839,7 @@ class AppController:
         self.create_and_send_message("radio_check", {"message": f"Checking radio connectivity with {target_addr}"}, timeout=0.5)
         async def _run_check():
             result = await self.apphandler.check_radio_connectivity_with(
-                target_addr, 20, byte_count
+                target_addr, 10, byte_count
             )
             self.report_radio_check_result(result[0], result[1], result[2])
 
@@ -945,6 +998,11 @@ class AppController:
         elif msg_type == "end_file_transfer":
             self._handle_end_file_transfer()
 
+    async def _exit_install_mode_from_command(self):
+        """Gracefully exit install mode when app sends exit command."""
+        await asyncio.sleep(1)
+        await self.stop()
+
     def handle_command(self, message):
         command = message.get("data")
         if command == "show_status":
@@ -979,7 +1037,7 @@ class AppController:
             self._close_socket_safely(self.wifi_socket)
             self.wifi_socket = None
             self.create_and_send_message("disconnect", "reboot")
-            time.sleep(10)
+            asyncio.sleep(10)
             machine.reset()
 #================================================ unused ================================================
         elif command == "set_disarmed":
@@ -1011,7 +1069,7 @@ class AppController:
         elif command == "exit_install_mode":
             logger.info("received command: exit_install_mode")
             self.create_and_send_message("exit_install_mode_ack", "exit_install_mode", timeout=1.0)
-            self.stop()
+            asyncio.create_task(self._exit_install_mode_from_command())
         else:
             logger.info(f"Unknown command: {command}")
 
