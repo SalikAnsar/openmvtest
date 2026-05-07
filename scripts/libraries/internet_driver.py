@@ -8,10 +8,8 @@ import sensor
 import ubinascii
 import enc
 
-# Try to import logger, fallback to print
 try:
     import logger
-
     HAS_LOGGER = True
 except ImportError:
     HAS_LOGGER = False

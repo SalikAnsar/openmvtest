@@ -26,7 +26,6 @@ import hashlib
 import enc
 import config
 from utils import int_to_nbytes
-from fs_utils import create_dir_if_not_exists
 from sx1262 import SX1262
 from gps_driver import GPSDriver
 from internet_driver import InternetDriver
@@ -2040,11 +2039,13 @@ def process_message(databytes, rssi=None):
         asyncio.create_task(send_msg("A", my_addr, ackmessage, sender))
     elif msg_typ == "K":
         msgstr = msgbytes.decode()
+        global trans_paired_device, trans_data_id
         if msgstr == "install_mode":
             print(f"install mode {is_install_mode}")
             if not is_install_mode:
                 asyncio.create_task(enter_install_mode())
             asyncio.create_task(send_msg("J", my_addr, b"installMode", sender))
+            delete_transmode_lock(trans_paired_device, trans_data_id)
         else:
             logger.error(f"[APP] unknown command: {msgstr}")
 
@@ -2811,14 +2812,14 @@ async def enter_install_mode():
 # ---------------------------------------------------------------------------
 async def keep_blinking_restart_led():
     while True:
-        await asyncio.sleep(300)  # 5 minutes
         await config.led_restart_blinker()
+        await asyncio.sleep(6)
 
 
 async def main():
     global app_handler, app_controller
     print(f"Entering MAIN loop... [PROCESS MODE]")
-    await config.led_restart_blinker()
+    # await config.led_restart_blinker()
     asyncio.create_task(keep_blinking_restart_led())
 
     await init_tracx_internet()

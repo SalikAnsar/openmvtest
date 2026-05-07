@@ -19,12 +19,18 @@ WIFI_COMM_PORT_MAP = {
         223: 5008,
         224: 5009,
         225: 5010,
-        227: 5011,
-        228: 5012,
-        229: 5013,
-        230: 5014,
-        231: 5015,
+        226: 5011,
+        227: 5012,
+        228: 5013,
+        229: 5014,
+        230: 5015,
+        231: 5016,
+        232: 5017,
+        233: 5018,
+        234: 5019,
+        235: 5020
         }
+        
 # Auto-disconnect WiFi + app TCP session after this many seconds (from successful socket connect).
 WIFI_SOCKET_SESSION_TIMEOUT_S = 600
 wifi_socket = None

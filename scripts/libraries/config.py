@@ -41,7 +41,7 @@ def running_as_cc():  # NOT in use, dynamic CC applied
 async def led_restart_blinker():
     led = LED("LED_GREEN")
     blink_count = 5
-    blink_duration = 0.5
+    blink_duration = 0.1
     for i in range(blink_count):
         led.on()
         await asyncio.sleep(blink_duration)
